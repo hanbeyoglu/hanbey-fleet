@@ -1,32 +1,33 @@
 import { useEffect, useState } from 'react';
 import { expensesApi } from '../lib/api';
 import { formatCurrency, formatDate } from '../lib/utils';
-import { ExpenseCategory } from '@taxiledger/shared';
+import { ExpenseCategory } from '@hanbey-fleet/shared';
+import { ExpenseResponseDto, unwrapPaginated } from '../types/api';
 
-interface Expense {
-  id: string;
-  category: ExpenseCategory;
-  amount: string;
-  date: string;
-  description?: string;
-  vehicle: { plate: string };
-}
-
-const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
+const CATEGORY_COLORS: Partial<Record<ExpenseCategory, string>> = {
   [ExpenseCategory.FUEL]: 'bg-blue-100 text-blue-700',
   [ExpenseCategory.MAINTENANCE]: 'bg-yellow-100 text-yellow-700',
   [ExpenseCategory.INSURANCE]: 'bg-purple-100 text-purple-700',
   [ExpenseCategory.TAX]: 'bg-red-100 text-red-700',
-  [ExpenseCategory.HGS]: 'bg-orange-100 text-orange-700',
+  [ExpenseCategory.PENALTY]: 'bg-orange-100 text-orange-700',
+  [ExpenseCategory.CLEANING]: 'bg-teal-100 text-teal-700',
+  [ExpenseCategory.PARKING]: 'bg-indigo-100 text-indigo-700',
   [ExpenseCategory.OTHER]: 'bg-gray-100 text-gray-700',
 };
 
 export function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    expensesApi.list().then(({ data }) => setExpenses(data)).finally(() => setLoading(false));
+    expensesApi
+      .list()
+      .then(({ data }) => {
+        const { data: items } = unwrapPaginated<ExpenseResponseDto>(data);
+        setExpenses(items);
+      })
+      .catch(() => setExpenses([]))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -44,28 +45,39 @@ export function ExpensesPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Date', 'Vehicle', 'Category', 'Description', 'Amount'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
+                {['Date', 'Vehicle', 'Category', 'Note', 'Amount'].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide"
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {expenses.map((e) => (
                 <tr key={e.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{formatDate(e.date)}</td>
-                  <td className="px-4 py-3 font-mono">{e.vehicle.plate}</td>
+                  <td className="px-4 py-3">{formatDate(e.expenseDate)}</td>
+                  <td className="px-4 py-3 font-mono">{e.vehicle?.plate ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${CATEGORY_COLORS[e.category]}`}>
-                      {e.category}
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${CATEGORY_COLORS[e.category] ?? 'bg-gray-100 text-gray-700'}`}
+                    >
+                      {e.category ?? '—'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{e.description || '—'}</td>
-                  <td className="px-4 py-3 font-medium text-red-600">{formatCurrency(Number(e.amount))}</td>
+                  <td className="px-4 py-3 text-gray-500">{e.note?.trim() || '—'}</td>
+                  <td className="px-4 py-3 font-medium text-red-600">
+                    {formatCurrency(e.amount)}
+                  </td>
                 </tr>
               ))}
               {expenses.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-400">No expenses recorded yet.</td>
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                    No expenses recorded yet.
+                  </td>
                 </tr>
               )}
             </tbody>

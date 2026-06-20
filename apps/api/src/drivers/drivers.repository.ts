@@ -5,7 +5,7 @@ import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 
 const DRIVER_INCLUDE = {
-  user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
+  user: { select: { id: true, name: true, username: true, email: true, role: true, isActive: true } },
   shifts: {
     where: { status: ShiftStatus.ACTIVE, deletedAt: null },
     take: 1,
@@ -35,7 +35,7 @@ export class DriversRepository {
   findByIdForShift(id: string) {
     return this.prisma.driver.findFirst({
       where: { id, deletedAt: null },
-      include: { user: { select: { id: true, name: true, email: true, isActive: true } } },
+      include: { user: { select: { id: true, name: true, username: true, email: true, isActive: true } } },
     });
   }
 

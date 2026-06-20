@@ -1,24 +1,17 @@
 import { useEffect, useState } from 'react';
 import { driversApi } from '../lib/api';
-
-interface Driver {
-  id: string;
-  licenseNo: string;
-  phone: string;
-  address?: string;
-  user: { id: string; name: string; email: string };
-  assignments: Array<{
-    vehicle: { plate: string; brand: string; model: string };
-    isActive: boolean;
-  }>;
-}
+import { asArray, DriverResponseDto } from '../types/api';
 
 export function DriversPage() {
-  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [drivers, setDrivers] = useState<DriverResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    driversApi.list().then(({ data }) => setDrivers(data)).finally(() => setLoading(false));
+    driversApi
+      .list()
+      .then(({ data }) => setDrivers(asArray<DriverResponseDto>(data)))
+      .catch(() => setDrivers([]))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -36,8 +29,11 @@ export function DriversPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Name', 'Email', 'License No', 'Phone', 'Current Vehicle'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                {['Name', 'Username', 'License No', 'Phone', 'Current Vehicle'].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide"
+                  >
                     {h}
                   </th>
                 ))}
@@ -45,18 +41,26 @@ export function DriversPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {drivers.map((d) => {
-                const activeVehicle = d.assignments.find((a) => a.isActive);
+                const activeShift = d.shifts?.[0];
+                const vehicle = activeShift?.vehicle;
+
                 return (
                   <tr key={d.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{d.user.name}</td>
-                    <td className="px-4 py-3 text-gray-500">{d.user.email}</td>
-                    <td className="px-4 py-3 font-mono">{d.licenseNo}</td>
-                    <td className="px-4 py-3">{d.phone}</td>
+                    <td className="px-4 py-3 font-medium">{d.user?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {d.user?.username ? `@${d.user.username}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 font-mono">{d.licenseNo ?? '—'}</td>
+                    <td className="px-4 py-3">{d.phone ?? '—'}</td>
                     <td className="px-4 py-3">
-                      {activeVehicle ? (
-                        <span className="font-mono">{activeVehicle.vehicle.plate} ({activeVehicle.vehicle.brand} {activeVehicle.vehicle.model})</span>
+                      {vehicle?.plate ? (
+                        <span className="font-mono">
+                          {vehicle.plate}
+                          {(vehicle.brand || vehicle.model) &&
+                            ` (${[vehicle.brand, vehicle.model].filter(Boolean).join(' ')})`}
+                        </span>
                       ) : (
-                        <span className="text-gray-400">Unassigned</span>
+                        <span className="text-gray-400">—</span>
                       )}
                     </td>
                   </tr>

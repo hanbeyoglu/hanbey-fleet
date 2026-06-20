@@ -21,8 +21,8 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
-    const existing = await this.repo.findByEmail(dto.email);
-    if (existing) throw new ConflictException('Email already registered');
+    const existing = await this.repo.findByUsername(dto.username);
+    if (existing) throw new ConflictException('Username already registered');
 
     const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     return this.repo.create({ ...dto, password: hashedPassword });

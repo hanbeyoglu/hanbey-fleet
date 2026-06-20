@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface HgsTransitData {
@@ -41,7 +42,7 @@ export class HgsRepository {
         amount: r.amount,
         provider: r.provider,
         referenceNo: r.referenceNo,
-        rawData: r.rawData,
+        rawData: r.rawData as Prisma.InputJsonValue | undefined,
         syncedAt: new Date(),
       })),
       skipDuplicates: true,

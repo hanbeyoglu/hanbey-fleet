@@ -1,23 +1,21 @@
 import { useEffect, useState } from 'react';
 import { maintenanceApi } from '../lib/api';
-import { formatCurrency, formatDate } from '../lib/utils';
-
-interface MaintenanceRecord {
-  id: string;
-  description: string;
-  cost: string;
-  date: string;
-  mileage?: number;
-  serviceProvider?: string;
-  vehicle: { plate: string; brand: string; model: string };
-}
+import { formatCurrency, formatDate, parseDecimal } from '../lib/utils';
+import { MaintenanceRecordDto, unwrapPaginated } from '../types/api';
 
 export function MaintenancePage() {
-  const [records, setRecords] = useState<MaintenanceRecord[]>([]);
+  const [records, setRecords] = useState<MaintenanceRecordDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    maintenanceApi.list().then(({ data }) => setRecords(data)).finally(() => setLoading(false));
+    maintenanceApi
+      .list()
+      .then(({ data }) => {
+        const { data: items } = unwrapPaginated<MaintenanceRecordDto>(data);
+        setRecords(items);
+      })
+      .catch(() => setRecords([]))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -35,25 +33,38 @@ export function MaintenancePage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Date', 'Vehicle', 'Description', 'Service Provider', 'Mileage', 'Cost'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
-                ))}
+                {['Date', 'Vehicle', 'Description', 'Service Provider', 'Mileage', 'Cost'].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >
+                      {h}
+                    </th>
+                  ),
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {records.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">{formatDate(r.date)}</td>
-                  <td className="px-4 py-3 font-mono">{r.vehicle.plate}</td>
-                  <td className="px-4 py-3">{r.description}</td>
-                  <td className="px-4 py-3 text-gray-500">{r.serviceProvider || '—'}</td>
-                  <td className="px-4 py-3">{r.mileage ? `${r.mileage.toLocaleString()} km` : '—'}</td>
-                  <td className="px-4 py-3 font-medium text-orange-600">{formatCurrency(Number(r.cost))}</td>
+                  <td className="px-4 py-3 font-mono">{r.vehicle?.plate ?? '—'}</td>
+                  <td className="px-4 py-3">{r.description ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{r.serviceProvider?.trim() || '—'}</td>
+                  <td className="px-4 py-3">
+                    {r.mileage != null ? `${r.mileage.toLocaleString('tr-TR')} km` : '—'}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-orange-600">
+                    {formatCurrency(parseDecimal(r.cost))}
+                  </td>
                 </tr>
               ))}
               {records.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">No maintenance records yet.</td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                    No maintenance records yet.
+                  </td>
                 </tr>
               )}
             </tbody>

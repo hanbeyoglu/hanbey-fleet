@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@hanbey-fleet/shared': path.resolve(__dirname, '../../packages/shared/src/types/index.ts'),
     },
   },
   server: {

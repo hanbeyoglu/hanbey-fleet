@@ -11,7 +11,7 @@ type VehicleWithRelations = Vehicle & {
   shifts?: Array<
     Shift & {
       driver: Driver & {
-        user: Pick<User, 'name' | 'email'>;
+        user: Pick<User, 'name' | 'username' | 'email'>;
       };
     }
   >;
@@ -59,13 +59,14 @@ export class VehicleMapper {
   private static toActiveShiftSummary(
     shift: Shift & {
       driver: Driver & {
-        user: Pick<User, 'name' | 'email'>;
+        user: Pick<User, 'name' | 'username' | 'email'>;
       };
     },
   ): ActiveShiftSummaryDto {
     return {
       id: shift.id,
       driverName: shift.driver.user.name,
+      driverUsername: shift.driver.user.username,
       driverEmail: shift.driver.user.email,
       plannedStart: shift.plannedStart,
       plannedEnd: shift.plannedEnd,

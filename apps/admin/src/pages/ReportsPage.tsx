@@ -1,36 +1,41 @@
 import { useEffect, useState } from 'react';
 import { reportsApi } from '../lib/api';
 import { formatCurrency } from '../lib/utils';
-
-interface VehicleSummary {
-  vehicle: { id: string; plate: string; brand: string; model: string };
-  revenue: { total: number; driverShare: number; ownerShare: number; settlementCount: number };
-  expenses: { total: number };
-  hgs: { total: number };
-  netOwnerProfit: number;
-}
-
-interface MonthlySummary {
-  period: { year: number; month: number };
-  vehicles: VehicleSummary[];
-  totals: { revenue: number; ownerShare: number; expenses: number; hgs: number; netProfit: number };
-}
+import { asArray, MonthlyReportSummary, MonthlyReportVehicleSummary } from '../types/api';
 
 export function ReportsPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [summary, setSummary] = useState<MonthlySummary | null>(null);
+  const [summary, setSummary] = useState<MonthlyReportSummary | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const load = () => {
+  useEffect(() => {
     setLoading(true);
-    reportsApi.monthly(year, month).then(({ data }) => setSummary(data)).finally(() => setLoading(false));
-  };
+    reportsApi
+      .monthly(year, month)
+      .then(({ data }) => setSummary((data as MonthlyReportSummary) ?? null))
+      .catch(() => setSummary(null))
+      .finally(() => setLoading(false));
+  }, [year, month]);
 
-  useEffect(() => { load(); }, [year, month]);
+  const MONTHS = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
 
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const totals = summary?.totals;
+  const vehicles = asArray<MonthlyReportVehicleSummary>(summary?.vehicles);
 
   return (
     <div>
@@ -43,7 +48,9 @@ export function ReportsPage() {
             className="px-3 py-2 border border-gray-300 rounded-md text-sm"
           >
             {MONTHS.map((m, i) => (
-              <option key={m} value={i + 1}>{m}</option>
+              <option key={m} value={i + 1}>
+                {m}
+              </option>
             ))}
           </select>
           <select
@@ -51,7 +58,11 @@ export function ReportsPage() {
             onChange={(e) => setYear(Number(e.target.value))}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm"
           >
-            {[2023, 2024, 2025, 2026].map((y) => <option key={y} value={y}>{y}</option>)}
+            {[2023, 2024, 2025, 2026].map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -60,15 +71,17 @@ export function ReportsPage() {
         <div className="flex items-center justify-center h-64">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-      ) : summary && (
+      ) : !summary ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400 text-sm">
+          Report data could not be loaded.
+        </div>
+      ) : (
         <>
-          <div className="grid grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-3 gap-4 mb-8">
             {[
-              { label: 'Total Revenue', value: summary.totals.revenue, color: 'text-green-600' },
-              { label: 'Owner Share', value: summary.totals.ownerShare, color: 'text-blue-600' },
-              { label: 'Expenses', value: summary.totals.expenses, color: 'text-red-600' },
-              { label: 'HGS Tolls', value: summary.totals.hgs, color: 'text-orange-600' },
-              { label: 'Net Profit', value: summary.totals.netProfit, color: 'text-emerald-600' },
+              { label: 'Expenses', value: totals?.expenses, color: 'text-red-600' },
+              { label: 'HGS Tolls', value: totals?.hgs, color: 'text-orange-600' },
+              { label: 'Maintenance', value: totals?.maintenance, color: 'text-emerald-600' },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-4">
                 <div className="text-xs text-gray-500 mb-1">{s.label}</div>
@@ -84,31 +97,41 @@ export function ReportsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {['Vehicle', 'Settlements', 'Revenue', 'Owner Share', 'Expenses', 'HGS', 'Net Profit'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
+                  {['Vehicle', 'Expenses', 'HGS', 'Maintenance'].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {summary.vehicles.map((v) => (
-                  <tr key={v.vehicle.id} className="hover:bg-gray-50">
+                {vehicles.map((v) => (
+                  <tr key={v.vehicle?.id ?? v.vehicle?.plate} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <div className="font-mono font-medium">{v.vehicle.plate}</div>
-                      <div className="text-xs text-gray-400">{v.vehicle.brand} {v.vehicle.model}</div>
+                      <div className="font-mono font-medium">{v.vehicle?.plate ?? '—'}</div>
+                      <div className="text-xs text-gray-400">
+                        {[v.vehicle?.brand, v.vehicle?.model].filter(Boolean).join(' ') || '—'}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-center">{v.revenue.settlementCount}</td>
-                    <td className="px-4 py-3 text-green-600">{formatCurrency(v.revenue.total)}</td>
-                    <td className="px-4 py-3">{formatCurrency(v.revenue.ownerShare)}</td>
-                    <td className="px-4 py-3 text-red-600">{formatCurrency(v.expenses.total)}</td>
-                    <td className="px-4 py-3 text-orange-600">{formatCurrency(v.hgs.total)}</td>
-                    <td className={`px-4 py-3 font-medium ${v.netOwnerProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {formatCurrency(v.netOwnerProfit)}
+                    <td className="px-4 py-3 text-red-600">
+                      {formatCurrency(v.expenses?.total)}
+                    </td>
+                    <td className="px-4 py-3 text-orange-600">
+                      {formatCurrency(v.hgs?.total)}
+                    </td>
+                    <td className="px-4 py-3 text-emerald-600">
+                      {formatCurrency(v.maintenance?.total)}
                     </td>
                   </tr>
                 ))}
-                {summary.vehicles.length === 0 && (
+                {vehicles.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400">No data for this period.</td>
+                    <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                      No data for this period.
+                    </td>
                   </tr>
                 )}
               </tbody>

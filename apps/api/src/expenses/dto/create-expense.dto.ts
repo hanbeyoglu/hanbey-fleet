@@ -1,4 +1,12 @@
-import { IsUUID, IsDateString, IsNumber, IsOptional, IsString, IsEnum, IsPositive } from 'class-validator';
+import {
+  IsUUID,
+  IsDateString,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsPositive,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ExpenseCategory } from '@hanbey-fleet/shared';
 import { Type } from 'class-transformer';
@@ -7,6 +15,11 @@ export class CreateExpenseDto {
   @ApiProperty()
   @IsUUID()
   vehicleId: string;
+
+  @ApiPropertyOptional()
+  @IsUUID()
+  @IsOptional()
+  shiftId?: string;
 
   @ApiProperty({ enum: ExpenseCategory })
   @IsEnum(ExpenseCategory)

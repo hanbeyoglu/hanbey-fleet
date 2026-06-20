@@ -64,6 +64,20 @@ export enum ShiftSortField {
   CLOSING_MILEAGE = 'closingMileage',
 }
 
+export enum ExpenseSortField {
+  EXPENSE_DATE = 'expenseDate',
+  AMOUNT = 'amount',
+  CATEGORY = 'category',
+  CREATED_AT = 'createdAt',
+}
+
+export enum MaintenanceSortField {
+  DATE = 'date',
+  COST = 'cost',
+  MILEAGE = 'mileage',
+  CREATED_AT = 'createdAt',
+}
+
 export enum TimelineEventType {
   VEHICLE_CREATED = 'VEHICLE_CREATED',
   VEHICLE_DELETED = 'VEHICLE_DELETED',
@@ -74,6 +88,11 @@ export enum TimelineEventType {
   DRIVER_REPORT_SUBMITTED = 'DRIVER_REPORT_SUBMITTED',
   DRIVER_REPORT_APPROVED = 'DRIVER_REPORT_APPROVED',
   EXPENSE_CREATED = 'EXPENSE_CREATED',
+  EXPENSE_UPDATED = 'EXPENSE_UPDATED',
+  EXPENSE_DELETED = 'EXPENSE_DELETED',
+  MAINTENANCE_CREATED = 'MAINTENANCE_CREATED',
+  MAINTENANCE_UPDATED = 'MAINTENANCE_UPDATED',
+  MAINTENANCE_DELETED = 'MAINTENANCE_DELETED',
   MAINTENANCE_COMPLETED = 'MAINTENANCE_COMPLETED',
   HGS_IMPORTED = 'HGS_IMPORTED',
 }
@@ -106,7 +125,7 @@ export interface ApiResponse<T> {
 
 export interface JwtPayload {
   sub: string;
-  email: string;
+  username: string;
   role: Role;
   iat?: number;
   exp?: number;

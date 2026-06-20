@@ -47,7 +47,10 @@ export class ActiveShiftSummaryDto {
   driverName: string;
 
   @ApiProperty()
-  driverEmail: string;
+  driverUsername: string;
+
+  @ApiPropertyOptional()
+  driverEmail?: string | null;
 
   @ApiProperty()
   plannedStart: Date;

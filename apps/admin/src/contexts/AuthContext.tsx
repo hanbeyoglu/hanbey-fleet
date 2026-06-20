@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authApi } from '../lib/api';
-import { JwtPayload, Role } from '@taxiledger/shared';
+import { JwtPayload, Role } from '@hanbey-fleet/shared';
 
 interface AuthUser extends JwtPayload {
   name: string;
@@ -9,7 +9,7 @@ interface AuthUser extends JwtPayload {
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -32,8 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const { data } = await authApi.login(email, password);
+  const login = async (username: string, password: string) => {
+    const { data } = await authApi.login(username, password);
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     setUser(data.user);

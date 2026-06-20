@@ -1,4 +1,13 @@
-import { IsUUID, IsDateString, IsNumber, IsOptional, IsString, IsInt, IsPositive } from 'class-validator';
+import {
+  IsUUID,
+  IsDateString,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsInt,
+  IsPositive,
+  IsNotEmpty,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -7,8 +16,14 @@ export class CreateMaintenanceDto {
   @IsUUID()
   vehicleId: string;
 
+  @ApiPropertyOptional()
+  @IsUUID()
+  @IsOptional()
+  expenseId?: string;
+
   @ApiProperty({ example: 'Oil change and filter replacement' })
   @IsString()
+  @IsNotEmpty()
   description: string;
 
   @ApiProperty({ example: 850.0 })
@@ -31,6 +46,17 @@ export class CreateMaintenanceDto {
   @IsString()
   @IsOptional()
   serviceProvider?: string;
+
+  @ApiPropertyOptional({ example: '2025-06-20T00:00:00.000Z' })
+  @IsDateString()
+  @IsOptional()
+  warrantyUntil?: string;
+
+  @ApiPropertyOptional({ example: 95000 })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  nextMaintenanceMileage?: number;
 
   @ApiPropertyOptional()
   @IsString()

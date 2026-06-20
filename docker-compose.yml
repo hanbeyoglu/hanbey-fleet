@@ -3,36 +3,33 @@ version: '3.9'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: taxiledger-postgres
+    container_name: hanbey-fleet-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-taxiledger}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taxiledger_secret}
-      POSTGRES_DB: ${POSTGRES_DB:-taxiledger}
+      POSTGRES_USER: hanbey
+      POSTGRES_PASSWORD: hanbey123
+      POSTGRES_DB: hanbey_fleet
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '5433:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-taxiledger}']
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: taxiledger-redis
+    container_name: hanbey-fleet-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret}
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      - '6380:6379'
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', '--no-auth-warning', '-a', '${REDIS_PASSWORD:-redis_secret}', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
+  adminer:
+    image: adminer
+    container_name: hanbey-fleet-adminer
+    restart: unless-stopped
+    ports:
+      - '8081:8080'
 
 volumes:
   postgres_data:

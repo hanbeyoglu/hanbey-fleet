@@ -47,7 +47,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div className="p-4 border-t border-gray-200">
-          <div className="text-sm text-gray-600 mb-2 truncate">{user?.email}</div>
+          <div className="text-sm text-gray-600 mb-2 truncate">{user?.username}</div>
           <div className="text-xs text-gray-400 mb-3 uppercase tracking-wide">{user?.role}</div>
           <button
             onClick={handleLogout}

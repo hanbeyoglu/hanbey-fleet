@@ -6,7 +6,7 @@ import { ShiftCurrentQueryDto } from './dto/shift-current-query.dto';
 
 const SHIFT_INCLUDE = {
   vehicle: { select: { id: true, plate: true, brand: true, model: true } },
-  driver: { include: { user: { select: { name: true, email: true } } } },
+  driver: { include: { user: { select: { name: true, username: true, email: true } } } },
 } satisfies Prisma.ShiftInclude;
 
 export type ShiftCreateData = {

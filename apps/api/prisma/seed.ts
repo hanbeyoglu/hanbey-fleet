@@ -14,9 +14,10 @@ async function main() {
   ]);
 
   const owner = await prisma.user.upsert({
-    where: { email: 'owner@hanbeyfleet.com' },
+    where: { username: 'cabir' },
     update: {},
     create: {
+      username: 'cabir',
       email: 'owner@hanbeyfleet.com',
       password: ownerPassword,
       name: 'Fleet Owner',
@@ -25,9 +26,10 @@ async function main() {
   });
 
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@hanbeyfleet.com' },
+    where: { username: 'admin' },
     update: {},
     create: {
+      username: 'admin',
       email: 'admin@hanbeyfleet.com',
       password: adminPassword,
       name: 'Fleet Admin',
@@ -36,9 +38,10 @@ async function main() {
   });
 
   const driverUser = await prisma.user.upsert({
-    where: { email: 'driver1@hanbeyfleet.com' },
+    where: { username: 'ahmet' },
     update: {},
     create: {
+      username: 'ahmet',
       email: 'driver1@hanbeyfleet.com',
       password: driverPassword,
       name: 'Mehmet Yılmaz',
@@ -96,6 +99,40 @@ async function main() {
     },
   });
 
+  const maintenanceExpense = await prisma.expense.create({
+    data: {
+      vehicleId: vehicle.id,
+      category: 'MAINTENANCE',
+      amount: 850,
+      expenseDate: new Date('2024-03-15'),
+      note: 'Oil change and filter',
+    },
+  });
+
+  await prisma.maintenanceRecord.create({
+    data: {
+      vehicleId: vehicle.id,
+      expenseId: maintenanceExpense.id,
+      description: 'Oil change and filter replacement',
+      cost: 850,
+      date: new Date('2024-03-15'),
+      mileage: 45000,
+      serviceProvider: 'Toyota Yetkili Servis',
+      nextMaintenanceMileage: 55000,
+    },
+  });
+
+  await prisma.maintenanceRecord.create({
+    data: {
+      vehicleId: vehicle.id,
+      description: 'Front brake pad replacement',
+      cost: 1200,
+      date: new Date('2024-01-10'),
+      mileage: 42000,
+      serviceProvider: 'Bosch Car Service',
+    },
+  });
+
   await prisma.timelineEvent.createMany({
     data: [
       {
@@ -116,9 +153,9 @@ async function main() {
   console.log('Database seeded successfully.');
   console.log('');
   console.log('Login credentials:');
-  console.log('  Owner:  owner@hanbeyfleet.com / password123');
-  console.log('  Admin:  admin@hanbeyfleet.com / password123');
-  console.log('  Driver: driver1@hanbeyfleet.com / password123');
+  console.log('  Owner:  cabir / password123');
+  console.log('  Admin:  admin / password123');
+  console.log('  Driver: ahmet / password123');
 
   void owner;
   void admin;

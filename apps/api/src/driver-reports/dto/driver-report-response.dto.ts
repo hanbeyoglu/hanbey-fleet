@@ -9,7 +9,10 @@ export class DriverReportApproverDto {
   name: string;
 
   @ApiProperty()
-  email: string;
+  username: string;
+
+  @ApiPropertyOptional()
+  email?: string | null;
 }
 
 export class DriverReportShiftSummaryDto {

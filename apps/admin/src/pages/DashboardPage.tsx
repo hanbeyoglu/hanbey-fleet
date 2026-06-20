@@ -1,23 +1,22 @@
 import { useEffect, useState } from 'react';
-import { reportsApi, vehiclesApi, driversApi } from '../lib/api';
+import { driversApi, reportsApi, shiftsApi, timelineApi, vehiclesApi } from '../lib/api';
+import { TimelineFeed } from '../components/TimelineFeed';
 import { formatCurrency } from '../lib/utils';
-
-interface MonthlySummary {
-  totals: {
-    revenue: number;
-    ownerShare: number;
-    expenses: number;
-    hgs: number;
-    netProfit: number;
-  };
-  vehicles: unknown[];
-}
+import {
+  asArray,
+  MonthlyReportSummary,
+  ShiftResponseDto,
+  TimelineEventDto,
+  unwrapPaginated,
+} from '../types/api';
 
 export function DashboardPage() {
   const now = new Date();
-  const [summary, setSummary] = useState<MonthlySummary | null>(null);
+  const [summary, setSummary] = useState<MonthlyReportSummary | null>(null);
   const [vehicleCount, setVehicleCount] = useState(0);
   const [driverCount, setDriverCount] = useState(0);
+  const [activeShiftCount, setActiveShiftCount] = useState(0);
+  const [timeline, setTimeline] = useState<TimelineEventDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,13 +24,23 @@ export function DashboardPage() {
       reportsApi.monthly(now.getFullYear(), now.getMonth() + 1),
       vehiclesApi.list(),
       driversApi.list(),
+      shiftsApi.current(),
+      timelineApi.list(),
     ])
-      .then(([reportRes, vehiclesRes, driversRes]) => {
-        setSummary(reportRes.data);
-        setVehicleCount(vehiclesRes.data.meta?.total ?? vehiclesRes.data.data?.length ?? vehiclesRes.data.length ?? 0);
-        setDriverCount(driversRes.data.length);
+      .then(([reportRes, vehiclesRes, driversRes, shiftsRes, timelineRes]) => {
+        setSummary((reportRes.data as MonthlyReportSummary) ?? null);
+
+        const { data: vehicles, meta } = unwrapPaginated(vehiclesRes.data);
+        setVehicleCount(meta?.total ?? vehicles.length);
+
+        setDriverCount(asArray(driversRes.data).length);
+        setActiveShiftCount(asArray<ShiftResponseDto>(shiftsRes.data).length);
+        setTimeline(asArray<TimelineEventDto>(timelineRes.data));
       })
-      .catch(console.error)
+      .catch(() => {
+        setSummary(null);
+        setTimeline([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -45,32 +54,29 @@ export function DashboardPage() {
     );
   }
 
+  const totals = summary?.totals;
+
   const stats = [
-    { label: 'Active Vehicles', value: vehicleCount, icon: '🚕', color: 'bg-blue-50 text-blue-700' },
-    { label: 'Registered Drivers', value: driverCount, icon: '👤', color: 'bg-purple-50 text-purple-700' },
+    { label: 'Registered Vehicles', value: vehicleCount, icon: '🚕', color: 'text-blue-700' },
+    { label: 'Registered Drivers', value: driverCount, icon: '👤', color: 'text-purple-700' },
+    { label: 'Active Shifts', value: activeShiftCount, icon: '🔄', color: 'text-green-700' },
     {
-      label: 'Monthly Revenue',
-      value: formatCurrency(summary?.totals.revenue ?? 0),
-      icon: '💰',
-      color: 'bg-green-50 text-green-700',
-    },
-    {
-      label: 'Net Owner Profit',
-      value: formatCurrency(summary?.totals.netProfit ?? 0),
-      icon: '📈',
-      color: 'bg-emerald-50 text-emerald-700',
-    },
-    {
-      label: 'Total Expenses',
-      value: formatCurrency(summary?.totals.expenses ?? 0),
+      label: 'Monthly Expenses',
+      value: formatCurrency(totals?.expenses),
       icon: '📋',
-      color: 'bg-orange-50 text-orange-700',
+      color: 'text-orange-700',
     },
     {
       label: 'HGS Tolls',
-      value: formatCurrency(summary?.totals.hgs ?? 0),
+      value: formatCurrency(totals?.hgs),
       icon: '🛣️',
-      color: 'bg-red-50 text-red-700',
+      color: 'text-red-700',
+    },
+    {
+      label: 'Maintenance',
+      value: formatCurrency(totals?.maintenance),
+      icon: '🔧',
+      color: 'text-emerald-700',
     },
   ];
 
@@ -86,28 +92,38 @@ export function DashboardPage() {
           <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-gray-500">{stat.label}</span>
-              <span className={`text-2xl`}>{stat.icon}</span>
+              <span className="text-2xl">{stat.icon}</span>
             </div>
-            <div className={`text-2xl font-bold ${stat.color.split(' ')[1]}`}>{stat.value}</div>
+            <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
           </div>
         ))}
       </div>
 
-      <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Financial Breakdown ({month})</h2>
-        <div className="space-y-3">
-          {[
-            { label: 'Total Revenue', value: summary?.totals.revenue ?? 0, color: 'text-green-600' },
-            { label: 'Owner Share', value: summary?.totals.ownerShare ?? 0, color: 'text-blue-600' },
-            { label: 'Vehicle Expenses', value: -(summary?.totals.expenses ?? 0), color: 'text-red-600' },
-            { label: 'HGS Tolls', value: -(summary?.totals.hgs ?? 0), color: 'text-orange-600' },
-            { label: 'Net Profit', value: summary?.totals.netProfit ?? 0, color: 'text-emerald-600 font-bold' },
-          ].map((row) => (
-            <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-              <span className="text-sm text-gray-600">{row.label}</span>
-              <span className={`text-sm ${row.color}`}>{formatCurrency(row.value)}</span>
-            </div>
-          ))}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Cost Breakdown ({month})</h2>
+          <div className="space-y-3">
+            {[
+              { label: 'Vehicle Expenses', value: totals?.expenses, color: 'text-red-600' },
+              { label: 'HGS Tolls', value: totals?.hgs, color: 'text-orange-600' },
+              { label: 'Maintenance', value: totals?.maintenance, color: 'text-emerald-600' },
+            ].map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+              >
+                <span className="text-sm text-gray-600">{row.label}</span>
+                <span className={`text-sm font-medium ${row.color}`}>
+                  {formatCurrency(row.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Timeline</h2>
+          <TimelineFeed events={timeline} limit={8} />
         </div>
       </div>
     </div>

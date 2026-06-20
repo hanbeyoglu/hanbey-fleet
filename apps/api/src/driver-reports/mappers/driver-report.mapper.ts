@@ -9,7 +9,7 @@ import { DriverReportSource } from '@hanbey-fleet/shared';
 type DecimalLike = { toNumber(): number } | number | null | undefined;
 
 type DriverReportWithRelations = DriverReport & {
-  approvedBy?: Pick<User, 'id' | 'name' | 'email'> | null;
+  approvedBy?: Pick<User, 'id' | 'name' | 'username' | 'email'> | null;
   shift?: {
     id: string;
     vehicleId: string;
@@ -56,8 +56,8 @@ export class DriverReportMapper {
     return typeof value === 'number' ? value : value.toNumber();
   }
 
-  private static toApprover(user: Pick<User, 'id' | 'name' | 'email'>): DriverReportApproverDto {
-    return { id: user.id, name: user.name, email: user.email };
+  private static toApprover(user: Pick<User, 'id' | 'name' | 'username' | 'email'>): DriverReportApproverDto {
+    return { id: user.id, name: user.name, username: user.username, email: user.email };
   }
 
   private static toShiftSummary(

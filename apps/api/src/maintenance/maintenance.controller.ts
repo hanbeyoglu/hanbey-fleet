@@ -1,8 +1,19 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, ParseUUIDPipe, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  Query,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MaintenanceService } from './maintenance.service';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
+import { MaintenanceListQueryDto } from './dto/maintenance-list-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '@hanbey-fleet/shared';
 
@@ -13,10 +24,9 @@ export class MaintenanceController {
   constructor(private service: MaintenanceService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List maintenance records, optionally filter by vehicleId' })
-  @ApiQuery({ name: 'vehicleId', required: false })
-  findAll(@Query('vehicleId') vehicleId?: string) {
-    return this.service.findAll(vehicleId);
+  @ApiOperation({ summary: 'List maintenance records with filtering, pagination and sorting' })
+  findAll(@Query() query: MaintenanceListQueryDto) {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

@@ -22,24 +22,25 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.usersRepository.findByEmail(dto.email);
-    if (existing) throw new ConflictException('Email already registered');
+    const existing = await this.usersRepository.findByUsername(dto.username);
+    if (existing) throw new ConflictException('Username already registered');
 
     const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
     const user = await this.usersRepository.create({
       name: dto.name,
+      username: dto.username,
       email: dto.email,
       password: hashedPassword,
       role: (dto.role as Role) ?? Role.DRIVER,
     });
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role as Role);
+    const tokens = await this.generateTokens(user.id, user.username, user.role as Role);
     return { user, ...tokens };
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersRepository.findByEmailWithPassword(dto.email);
+    const user = await this.usersRepository.findByUsernameWithPassword(dto.username);
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Invalid credentials');
@@ -48,7 +49,7 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role as Role);
+    const tokens = await this.generateTokens(user.id, user.username, user.role as Role);
     const { password: _, ...safeUser } = user;
 
     return { user: safeUser, ...tokens };
@@ -66,14 +67,14 @@ export class AuthService {
         secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
       });
 
-      return this.generateTokens(payload.sub, payload.email, payload.role);
+      return this.generateTokens(payload.sub, payload.username, payload.role);
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  private async generateTokens(userId: string, email: string, role: Role) {
-    const payload: JwtPayload = { sub: userId, email, role };
+  private async generateTokens(userId: string, username: string, role: Role) {
+    const payload: JwtPayload = { sub: userId, username, role };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {

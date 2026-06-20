@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 
@@ -18,7 +19,15 @@ export class NotificationsRepository {
   }
 
   create(dto: CreateNotificationDto) {
-    return this.prisma.notification.create({ data: dto });
+    return this.prisma.notification.create({
+      data: {
+        userId: dto.userId,
+        title: dto.title,
+        message: dto.message,
+        type: dto.type,
+        metadata: dto.metadata as Prisma.InputJsonValue | undefined,
+      },
+    });
   }
 
   markRead(id: string) {

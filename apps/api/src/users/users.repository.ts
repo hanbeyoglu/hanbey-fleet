@@ -4,6 +4,7 @@ import { Role } from '@hanbey-fleet/shared';
 
 const USER_SELECT = {
   id: true,
+  username: true,
   name: true,
   email: true,
   role: true,
@@ -14,7 +15,8 @@ const USER_SELECT = {
 
 interface CreateUserData {
   name: string;
-  email: string;
+  username: string;
+  email?: string;
   password: string;
   role?: Role;
 }
@@ -38,16 +40,16 @@ export class UsersRepository {
     });
   }
 
-  findByEmail(email: string) {
+  findByUsername(username: string) {
     return this.prisma.user.findUnique({
-      where: { email },
+      where: { username },
       select: USER_SELECT,
     });
   }
 
-  findByEmailWithPassword(email: string) {
+  findByUsernameWithPassword(username: string) {
     return this.prisma.user.findUnique({
-      where: { email, deletedAt: null },
+      where: { username, deletedAt: null },
     });
   }
 

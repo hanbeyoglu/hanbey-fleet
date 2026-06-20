@@ -8,7 +8,7 @@ import { VehicleListQueryDto } from './dto/vehicle-list-query.dto';
 const ACTIVE_SHIFT_INCLUDE = {
   shifts: {
     where: { status: ShiftStatus.ACTIVE, deletedAt: null },
-    include: { driver: { include: { user: { select: { name: true, email: true } } } } },
+    include: { driver: { include: { user: { select: { name: true, username: true, email: true } } } } },
     take: 1,
   },
   timelineEvents: { orderBy: { eventTime: 'desc' as const }, take: 20 },

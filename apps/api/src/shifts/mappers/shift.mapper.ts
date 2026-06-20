@@ -9,7 +9,7 @@ import { PaginatedResponse, PaginationMeta, ShiftStatus, ShiftType } from '@hanb
 type ShiftWithRelations = Shift & {
   vehicle?: Pick<Vehicle, 'id' | 'plate' | 'brand' | 'model'>;
   driver?: Driver & {
-    user: Pick<User, 'name' | 'email'>;
+    user: Pick<User, 'name' | 'username' | 'email'>;
   };
 };
 
@@ -58,11 +58,12 @@ export class ShiftMapper {
   }
 
   private static toDriverSummary(
-    driver: Driver & { user: Pick<User, 'name' | 'email'> },
+    driver: Driver & { user: Pick<User, 'name' | 'username' | 'email'> },
   ): ShiftDriverSummaryDto {
     return {
       id: driver.id,
       name: driver.user.name,
+      username: driver.user.username,
       email: driver.user.email,
     };
   }

@@ -1,52 +1,98 @@
 import { Injectable } from '@nestjs/common';
+import { ExpenseCategory, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateExpenseDto } from './dto/create-expense.dto';
-import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { ExpenseListQueryDto } from './dto/expense-list-query.dto';
+
+const EXPENSE_INCLUDE = {
+  vehicle: { select: { id: true, plate: true } },
+  shift: { select: { id: true, status: true } },
+} satisfies Prisma.ExpenseInclude;
+
+export interface CreateExpenseData {
+  vehicleId: string;
+  shiftId?: string;
+  category: ExpenseCategory;
+  amount: number;
+  expenseDate: Date;
+  note?: string;
+  receiptUrl?: string;
+}
+
+export interface UpdateExpenseData {
+  shiftId?: string | null;
+  category?: ExpenseCategory;
+  amount?: number;
+  expenseDate?: Date;
+  note?: string;
+  receiptUrl?: string;
+}
 
 @Injectable()
 export class ExpensesRepository {
   constructor(private prisma: PrismaService) {}
 
-  findAll(vehicleId?: string) {
-    return this.prisma.expense.findMany({
-      where: { deletedAt: null, ...(vehicleId && { vehicleId }) },
-      include: { vehicle: { select: { id: true, plate: true } } },
-      orderBy: { expenseDate: 'desc' },
-    });
+  findMany(query: ExpenseListQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const sortBy = query.sortBy ?? 'expenseDate';
+    const sortOrder = query.sortOrder ?? 'desc';
+    const where = this.buildWhereClause(query);
+
+    return Promise.all([
+      this.prisma.expense.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: EXPENSE_INCLUDE,
+      }),
+      this.prisma.expense.count({ where }),
+    ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
   findById(id: string) {
-    return this.prisma.expense.findUnique({
+    return this.prisma.expense.findFirst({
       where: { id, deletedAt: null },
-      include: { vehicle: { select: { id: true, plate: true } } },
+      include: EXPENSE_INCLUDE,
     });
   }
 
-  create(dto: CreateExpenseDto) {
+  create(data: CreateExpenseData) {
     return this.prisma.expense.create({
       data: {
-        vehicleId: dto.vehicleId,
-        category: dto.category,
-        amount: dto.amount,
-        expenseDate: new Date(dto.expenseDate),
-        note: dto.note,
-        receiptUrl: dto.receiptUrl,
+        vehicleId: data.vehicleId,
+        shiftId: data.shiftId,
+        category: data.category,
+        amount: data.amount,
+        expenseDate: data.expenseDate,
+        note: data.note,
+        receiptUrl: data.receiptUrl,
       },
+      include: EXPENSE_INCLUDE,
     });
   }
 
-  update(id: string, dto: UpdateExpenseDto) {
+  update(id: string, data: UpdateExpenseData) {
     return this.prisma.expense.update({
       where: { id },
       data: {
-        ...dto,
-        expenseDate: dto.expenseDate ? new Date(dto.expenseDate) : undefined,
+        ...(data.shiftId !== undefined && { shiftId: data.shiftId }),
+        ...(data.category !== undefined && { category: data.category }),
+        ...(data.amount !== undefined && { amount: data.amount }),
+        ...(data.expenseDate !== undefined && { expenseDate: data.expenseDate }),
+        ...(data.note !== undefined && { note: data.note }),
+        ...(data.receiptUrl !== undefined && { receiptUrl: data.receiptUrl }),
       },
+      include: EXPENSE_INCLUDE,
     });
   }
 
   softDelete(id: string) {
-    return this.prisma.expense.update({ where: { id }, data: { deletedAt: new Date() } });
+    return this.prisma.expense.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+      include: EXPENSE_INCLUDE,
+    });
   }
 
   monthlyByCategory(vehicleId: string, year: number, month: number) {
@@ -58,5 +104,38 @@ export class ExpensesRepository {
       _sum: { amount: true },
       _count: true,
     });
+  }
+
+  private buildWhereClause(query: ExpenseListQueryDto): Prisma.ExpenseWhereInput {
+    const where: Prisma.ExpenseWhereInput = { deletedAt: null };
+
+    if (query.category) {
+      where.category = query.category;
+    }
+
+    if (query.vehicleId) {
+      where.vehicleId = query.vehicleId;
+    }
+
+    if (query.shiftId) {
+      where.shiftId = query.shiftId;
+    }
+
+    if (query.startDate || query.endDate) {
+      where.expenseDate = {};
+      if (query.startDate) {
+        where.expenseDate.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.expenseDate.lte = new Date(query.endDate);
+      }
+    }
+
+    if (query.search) {
+      const term = query.search.trim();
+      where.note = { contains: term, mode: 'insensitive' };
+    }
+
+    return where;
   }
 }

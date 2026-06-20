@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsEnum, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@hanbey-fleet/shared';
 
@@ -7,9 +7,14 @@ export class RegisterDto {
   @IsString()
   name: string;
 
-  @ApiProperty({ example: 'ali@hanbeyfleet.com' })
+  @ApiProperty({ example: 'ali' })
+  @IsString()
+  username: string;
+
+  @ApiPropertyOptional({ example: 'ali@hanbeyfleet.com' })
   @IsEmail()
-  email: string;
+  @IsOptional()
+  email?: string;
 
   @ApiProperty({ example: 'password123', minLength: 6 })
   @IsString()

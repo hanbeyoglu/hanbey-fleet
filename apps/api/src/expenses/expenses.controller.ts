@@ -1,8 +1,19 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, ParseUUIDPipe, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  Query,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { ExpenseListQueryDto } from './dto/expense-list-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '@hanbey-fleet/shared';
 
@@ -13,10 +24,9 @@ export class ExpensesController {
   constructor(private service: ExpensesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List expenses, optionally filter by vehicleId' })
-  @ApiQuery({ name: 'vehicleId', required: false })
-  findAll(@Query('vehicleId') vehicleId?: string) {
-    return this.service.findAll(vehicleId);
+  @ApiOperation({ summary: 'List expenses with filtering, pagination and sorting' })
+  findAll(@Query() query: ExpenseListQueryDto) {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DriverReportSource } from '@hanbey-fleet/shared';
 
 const DRIVER_REPORT_INCLUDE = {
-  approvedBy: { select: { id: true, name: true, email: true } },
+  approvedBy: { select: { id: true, name: true, username: true, email: true } },
   shift: {
     select: {
       id: true,

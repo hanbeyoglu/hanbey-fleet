@@ -284,3 +284,187 @@ Final Rule
 Whenever there are multiple possible implementations,
 
 choose the one that makes the project easier to understand for the next developer.
+
+## Migration Rule
+
+Every schema change MUST be verified on a completely empty database.
+
+Required sequence:
+
+1. prisma migrate reset --force
+2. prisma migrate dev
+3. prisma generate
+4. prisma db seed
+
+Never use:
+
+- prisma db push
+
+except for local experiments.
+
+Every migration must be reproducible from an empty database.
+
+Broken migration chains are not acceptable.
+
+## Repository Rule
+
+Repositories are responsible only for data persistence.
+
+Repositories must never:
+
+- call other repositories
+- call services
+- publish domain events
+- perform business decisions
+
+Repositories may:
+
+- query
+- persist
+- paginate
+- filter
+- execute transactions
+
+## Transaction Rule
+
+Whenever more than one Aggregate is modified within a single business action,
+use a Prisma transaction.
+
+Examples:
+
+- Shift + Vehicle + Timeline
+- DriverReport + Timeline
+- Maintenance + Expense
+
+Never leave the system in a partially updated state.
+
+## Domain Language
+
+Always use the language defined by the Domain Model.
+
+Database naming may differ for compatibility,
+but Services, DTOs, APIs and UI should always use business terminology.
+
+Business language has priority over technical naming.
+
+## API Design
+
+Prefer business-oriented endpoints.
+
+Good
+
+POST /shifts/start
+
+POST /driver-reports/{id}/approve
+
+Bad
+
+POST /shifts
+
+PUT /driver-reports/:id
+
+## Incremental Changes
+
+Every Sprint should make the smallest possible change.
+
+Avoid unnecessary refactoring.
+
+Never rewrite working code unless there is measurable benefit.
+
+Prefer extending existing modules over replacing them.
+
+## Build Verification
+
+A Sprint is NOT complete until all of the following succeed:
+
+- TypeScript compilation
+- Prisma migration
+- Prisma generate
+- Prisma seed
+- Application startup
+- Swagger available
+
+## Documentation
+
+Whenever a Sprint introduces:
+
+- a new Aggregate
+- a new Workflow
+- a new Business Rule
+
+update the corresponding documentation before considering the Sprint complete.
+
+## AI Readiness
+
+Write code that can be easily understood by both developers and AI assistants.
+
+Favor explicit code over clever abstractions.
+
+Readable code is preferred over highly optimized code.
+
+## Definition of Done
+
+A Sprint is considered complete only when:
+
+✓ Business rules are implemented
+
+✓ DTO mapping exists
+
+✓ No Prisma model is exposed
+
+✓ Repositories contain no business logic
+
+✓ Timeline events are generated automatically
+
+✓ Migrations work from an empty database
+
+✓ Seed executes successfully
+
+✓ Application starts successfully
+
+✓ Swagger loads without errors
+
+✓ Documentation is updated
+
+## Aggregate Rule
+
+Each Aggregate is responsible for protecting its own invariants.
+
+Business rules must be enforced inside the Aggregate's Service.
+
+Aggregates communicate through Services and Domain Events.
+
+Never modify another Aggregate directly from a Repository.
+
+## Dependency Rule
+
+Dependencies must always point inward.
+
+Controller
+↓
+
+Service
+↓
+
+Repository
+↓
+
+Prisma
+
+Never reverse this direction.
+
+Repositories must never depend on Controllers or Services.
+
+Services must never depend on Controllers.
+
+Controllers must never access Prisma directly.
+
+## Dependency Rule
+
+Never introduce a new dependency without verifying:
+
+- it exists
+- it is actively maintained
+- it is actually required
+
+Prefer existing project dependencies over adding new packages.

@@ -1,41 +1,101 @@
-import { useEffect, useState } from 'react';
-import { vehiclesApi } from '../lib/api';
-import { VehicleStatus } from '@taxiledger/shared';
+import { useCallback, useEffect, useState, Fragment } from 'react';
+import { shiftsApi, vehiclesApi } from '../lib/api';
+import { TimelineFeed } from '../components/TimelineFeed';
+import { VehicleStatus } from '@hanbey-fleet/shared';
+import {
+  ActiveShiftSummaryDto,
+  asArray,
+  ShiftResponseDto,
+  unwrapPaginated,
+  VehicleDetailResponseDto,
+  VehicleResponseDto,
+} from '../types/api';
+import { formatDateTime } from '../lib/utils';
 
-interface Vehicle {
-  id: string;
-  plate: string;
-  brand: string;
-  model: string;
-  year: number;
-  color?: string;
-  status: VehicleStatus;
-  hgsTag?: string;
-  assignments: Array<{
-    driver: { user: { name: string } };
-    isActive: boolean;
-  }>;
-}
-
-const STATUS_COLORS: Record<VehicleStatus, string> = {
-  [VehicleStatus.ACTIVE]: 'bg-green-100 text-green-700',
-  [VehicleStatus.INACTIVE]: 'bg-gray-100 text-gray-600',
+const STATUS_COLORS: Partial<Record<VehicleStatus, string>> = {
+  [VehicleStatus.IDLE]: 'bg-gray-100 text-gray-600',
+  [VehicleStatus.ACTIVE_SHIFT]: 'bg-green-100 text-green-700',
   [VehicleStatus.MAINTENANCE]: 'bg-yellow-100 text-yellow-700',
+  [VehicleStatus.OUT_OF_SERVICE]: 'bg-red-100 text-red-700',
 };
 
+function shiftToActiveSummary(shift: ShiftResponseDto): ActiveShiftSummaryDto {
+  return {
+    id: shift.id,
+    driverName: shift.driver?.name ?? '—',
+    driverUsername: shift.driver?.username ?? '—',
+    driverEmail: shift.driver?.email,
+    plannedStart: shift.plannedStart,
+    plannedEnd: shift.plannedEnd,
+    actualStart: shift.actualStart,
+  };
+}
+
 export function VehiclesPage() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleResponseDto[]>([]);
+  const [activeShiftsByVehicle, setActiveShiftsByVehicle] = useState<
+    Record<string, ActiveShiftSummaryDto>
+  >({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ plate: '', brand: '', model: '', year: new Date().getFullYear(), color: '', hgsTag: '' });
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [vehicleDetail, setVehicleDetail] = useState<VehicleDetailResponseDto | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [form, setForm] = useState({
+    plate: '',
+    brand: '',
+    model: '',
+    year: new Date().getFullYear(),
+    color: '',
+    hgsTag: '',
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const load = () => {
-    vehiclesApi.list().then(({ data }) => setVehicles(data.data ?? data)).finally(() => setLoading(false));
-  };
+  const load = useCallback(() => {
+    setLoading(true);
+    Promise.all([vehiclesApi.list(), shiftsApi.current()])
+      .then(([vehiclesRes, shiftsRes]) => {
+        const { data } = unwrapPaginated<VehicleResponseDto>(vehiclesRes.data);
+        setVehicles(data);
 
-  useEffect(() => { load(); }, []);
+        const shiftMap: Record<string, ActiveShiftSummaryDto> = {};
+        for (const shift of asArray<ShiftResponseDto>(shiftsRes.data)) {
+          if (shift.vehicleId) {
+            shiftMap[shift.vehicleId] = shiftToActiveSummary(shift);
+          }
+        }
+        setActiveShiftsByVehicle(shiftMap);
+      })
+      .catch(() => {
+        setVehicles([]);
+        setActiveShiftsByVehicle({});
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const toggleExpand = async (vehicleId: string) => {
+    if (expandedId === vehicleId) {
+      setExpandedId(null);
+      setVehicleDetail(null);
+      return;
+    }
+
+    setExpandedId(vehicleId);
+    setDetailLoading(true);
+    setVehicleDetail(null);
+
+    try {
+      const { data } = await vehiclesApi.get(vehicleId);
+      setVehicleDetail(data as VehicleDetailResponseDto);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +104,14 @@ export function VehiclesPage() {
     try {
       await vehiclesApi.create({ ...form, year: Number(form.year) });
       setShowForm(false);
-      setForm({ plate: '', brand: '', model: '', year: new Date().getFullYear(), color: '', hgsTag: '' });
+      setForm({
+        plate: '',
+        brand: '',
+        model: '',
+        year: new Date().getFullYear(),
+        color: '',
+        hgsTag: '',
+      });
       load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -57,6 +124,10 @@ export function VehiclesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this vehicle?')) return;
     await vehiclesApi.delete(id);
+    if (expandedId === id) {
+      setExpandedId(null);
+      setVehicleDetail(null);
+    }
     load();
   };
 
@@ -98,10 +169,18 @@ export function VehiclesPage() {
             ))}
             {error && <div className="col-span-2 text-sm text-red-600">{error}</div>}
             <div className="col-span-2 flex gap-3">
-              <button type="submit" disabled={saving} className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-blue-600 disabled:opacity-50">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+              >
                 {saving ? 'Saving...' : 'Create Vehicle'}
               </button>
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50"
+              >
                 Cancel
               </button>
             </div>
@@ -118,8 +197,19 @@ export function VehiclesPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Plate', 'Brand / Model', 'Year', 'Color', 'Status', 'Active Driver', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                {[
+                  'Plate',
+                  'Brand / Model',
+                  'Year',
+                  'Mileage',
+                  'Status',
+                  'Active Driver',
+                  'Actions',
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide"
+                  >
                     {h}
                   </th>
                 ))}
@@ -127,30 +217,115 @@ export function VehiclesPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {vehicles.map((v) => {
-                const activeAssignment = v.assignments.find((a) => a.isActive);
+                const activeShift =
+                  vehicleDetail?.id === v.id
+                    ? vehicleDetail.activeShift
+                    : activeShiftsByVehicle[v.id];
+                const isExpanded = expandedId === v.id;
+
                 return (
-                  <tr key={v.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono font-medium">{v.plate}</td>
-                    <td className="px-4 py-3">{v.brand} {v.model}</td>
-                    <td className="px-4 py-3">{v.year}</td>
-                    <td className="px-4 py-3">{v.color || '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[v.status]}`}>
-                        {v.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {activeAssignment ? activeAssignment.driver.user.name : <span className="text-gray-400">Unassigned</span>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDelete(v.id)}
-                        className="text-red-500 hover:text-red-700 text-xs"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
+                  <Fragment key={v.id}>
+                    <tr
+                      key={v.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => toggleExpand(v.id)}
+                    >
+                      <td className="px-4 py-3 font-mono font-medium">{v.plate ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        {[v.brand, v.model].filter(Boolean).join(' ') || '—'}
+                      </td>
+                      <td className="px-4 py-3">{v.year ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        {v.currentMileage != null
+                          ? `${v.currentMileage.toLocaleString('tr-TR')} km`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[v.status] ?? 'bg-gray-100 text-gray-600'}`}
+                        >
+                          {v.status ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {activeShift ? (
+                          <span>
+                            {activeShift.driverName}
+                            <span className="text-gray-400 ml-1">(@{activeShift.driverUsername})</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleDelete(v.id)}
+                          className="text-red-500 hover:text-red-700 text-xs"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr key={`${v.id}-detail`}>
+                        <td colSpan={7} className="px-4 py-4 bg-gray-50">
+                          {detailLoading ? (
+                            <div className="flex justify-center py-6">
+                              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            </div>
+                          ) : vehicleDetail?.id === v.id ? (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              <div>
+                                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                                  Active Shift
+                                </h3>
+                                {vehicleDetail.activeShift ? (
+                                  <dl className="text-sm space-y-1">
+                                    <div className="flex gap-2">
+                                      <dt className="text-gray-500 w-28">Driver</dt>
+                                      <dd>
+                                        {vehicleDetail.activeShift.driverName} (@
+                                        {vehicleDetail.activeShift.driverUsername})
+                                      </dd>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <dt className="text-gray-500 w-28">Started</dt>
+                                      <dd>
+                                        {vehicleDetail.activeShift.actualStart
+                                          ? formatDateTime(vehicleDetail.activeShift.actualStart)
+                                          : formatDateTime(vehicleDetail.activeShift.plannedStart)}
+                                      </dd>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <dt className="text-gray-500 w-28">Planned end</dt>
+                                      <dd>
+                                        {formatDateTime(vehicleDetail.activeShift.plannedEnd)}
+                                      </dd>
+                                    </div>
+                                  </dl>
+                                ) : (
+                                  <p className="text-sm text-gray-400">No active shift</p>
+                                )}
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                                  Timeline
+                                </h3>
+                                <TimelineFeed
+                                  events={(vehicleDetail.timelineEvents ?? []).map((e) => ({
+                                    ...e,
+                                    vehicleId: v.id,
+                                    vehicle: { id: v.id, plate: v.plate ?? '—' },
+                                  }))}
+                                  limit={10}
+                                />
+                              </div>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
               {vehicles.length === 0 && (

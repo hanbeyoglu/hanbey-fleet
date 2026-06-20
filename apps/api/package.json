@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
+    "dev": "nest build && nest start --watch",
     "start": "node dist/main",
     "lint": "eslint src --ext .ts",
     "test": "jest",
@@ -24,7 +24,7 @@
     "@nestjs/platform-express": "^10.3.8",
     "@nestjs/swagger": "^7.3.1",
     "@nestjs/throttler": "^5.1.2",
-    "@prisma/client": "^5.14.0",
+    "@prisma/client": "5.14.0",
     "@hanbey-fleet/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
@@ -46,7 +46,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "jest": "^29.7.0",
-    "prisma": "^5.14.0",
+    "prisma": "5.14.0",
     "ts-jest": "^29.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"

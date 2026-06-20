@@ -39,7 +39,7 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  login: (email: string, password: string) => api.post('/auth/login', { email, password }),
+  login: (username: string, password: string) => api.post('/auth/login', { username, password }),
   me: () => api.get('/auth/me'),
 };
 
@@ -59,6 +59,18 @@ export const driversApi = {
   delete: (id: string) => api.delete(`/drivers/${id}`),
 };
 
+export const shiftsApi = {
+  current: (params?: { vehicleId?: string; driverId?: string }) =>
+    api.get('/shifts/current', { params }),
+  history: (params?: Record<string, unknown>) => api.get('/shifts/history', { params }),
+};
+
+export const timelineApi = {
+  list: () => api.get('/timeline'),
+  byVehicle: (vehicleId: string, limit?: number) =>
+    api.get(`/timeline/vehicle/${vehicleId}`, { params: limit ? { limit } : {} }),
+};
+
 export const settlementsApi = {
   list: (params?: { vehicleId?: string; driverId?: string }) =>
     api.get('/settlements', { params }),
@@ -68,7 +80,7 @@ export const settlementsApi = {
 };
 
 export const expensesApi = {
-  list: (vehicleId?: string) => api.get('/expenses', { params: vehicleId ? { vehicleId } : {} }),
+  list: (params?: Record<string, unknown>) => api.get('/expenses', { params }),
   get: (id: string) => api.get(`/expenses/${id}`),
   create: (data: unknown) => api.post('/expenses', data),
   update: (id: string, data: unknown) => api.patch(`/expenses/${id}`, data),
@@ -76,12 +88,16 @@ export const expensesApi = {
 };
 
 export const maintenanceApi = {
-  list: (vehicleId?: string) =>
-    api.get('/maintenance', { params: vehicleId ? { vehicleId } : {} }),
+  list: (params?: Record<string, unknown>) => api.get('/maintenance', { params }),
   get: (id: string) => api.get(`/maintenance/${id}`),
   create: (data: unknown) => api.post('/maintenance', data),
   update: (id: string, data: unknown) => api.patch(`/maintenance/${id}`, data),
   delete: (id: string) => api.delete(`/maintenance/${id}`),
+};
+
+export const hgsApi = {
+  list: (vehicleId?: string) => api.get('/hgs', { params: vehicleId ? { vehicleId } : {} }),
+  get: (id: string) => api.get(`/hgs/${id}`),
 };
 
 export const reportsApi = {
