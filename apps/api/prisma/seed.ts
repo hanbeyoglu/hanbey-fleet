@@ -133,6 +133,29 @@ async function main() {
     },
   });
 
+  await prisma.hgsTransit.createMany({
+    data: [
+      {
+        vehicleId: vehicle.id,
+        transitTime: new Date('2024-06-20T08:15:00.000Z'),
+        tollBooth: 'FSM',
+        amount: 125.5,
+        provider: 'ISBANK',
+        referenceNo: 'HGS-SEED-001',
+        syncedAt: new Date(),
+      },
+      {
+        vehicleId: vehicle.id,
+        transitTime: new Date('2024-06-20T14:30:00.000Z'),
+        tollBooth: 'YSS',
+        amount: 89.0,
+        provider: 'ISBANK',
+        referenceNo: 'HGS-SEED-002',
+        syncedAt: new Date(),
+      },
+    ],
+  });
+
   await prisma.timelineEvent.createMany({
     data: [
       {

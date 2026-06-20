@@ -79,6 +79,31 @@ export class ShiftsRepository {
     });
   }
 
+  findMatchingShiftForTransit(vehicleId: string, transitTime: Date) {
+    return this.prisma.shift
+      .findFirst({
+        where: { vehicleId, status: ShiftStatus.ACTIVE, deletedAt: null },
+        include: SHIFT_INCLUDE,
+      })
+      .then(async (active) => {
+        if (active?.actualStart && transitTime >= active.actualStart) {
+          return active;
+        }
+
+        return this.prisma.shift.findFirst({
+          where: {
+            vehicleId,
+            status: ShiftStatus.COMPLETED,
+            deletedAt: null,
+            actualStart: { not: null, lte: transitTime },
+            actualEnd: { not: null, gte: transitTime },
+          },
+          orderBy: { actualStart: 'desc' },
+          include: SHIFT_INCLUDE,
+        });
+      });
+  }
+
   findActiveByDriver(driverId: string) {
     return this.prisma.shift.findFirst({
       where: { driverId, status: ShiftStatus.ACTIVE, deletedAt: null },

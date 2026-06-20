@@ -1,51 +1,88 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { HgsListQueryDto } from './dto/hgs-list-query.dto';
 
-interface HgsTransitData {
+const HGS_INCLUDE = {
+  vehicle: { select: { id: true, plate: true, hgsTag: true } },
+  shift: { select: { id: true, status: true } },
+} satisfies Prisma.HgsTransitInclude;
+
+export interface CreateHgsTransitData {
   vehicleId: string;
   shiftId?: string;
   transitTime: Date;
   tollBooth: string;
   amount: number;
   provider?: string;
-  referenceNo?: string;
+  referenceNo: string;
   rawData?: Record<string, unknown>;
+  syncedAt: Date;
 }
 
 @Injectable()
 export class HgsRepository {
   constructor(private prisma: PrismaService) {}
 
-  findAll(vehicleId?: string) {
-    return this.prisma.hgsTransit.findMany({
-      where: vehicleId ? { vehicleId } : undefined,
-      include: { vehicle: { select: { id: true, plate: true, hgsTag: true } } },
-      orderBy: { transitTime: 'desc' },
-    });
+  runInTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(fn);
+  }
+
+  findMany(query: HgsListQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const sortBy = query.sortBy ?? 'transitTime';
+    const sortOrder = query.sortOrder ?? 'desc';
+    const where = this.buildWhereClause(query);
+
+    return Promise.all([
+      this.prisma.hgsTransit.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: HGS_INCLUDE,
+      }),
+      this.prisma.hgsTransit.count({ where }),
+    ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
   findById(id: string) {
     return this.prisma.hgsTransit.findUnique({
       where: { id },
-      include: { vehicle: { select: { id: true, plate: true, hgsTag: true } } },
+      include: HGS_INCLUDE,
     });
   }
 
-  createMany(records: HgsTransitData[]) {
-    return this.prisma.hgsTransit.createMany({
-      data: records.map((r) => ({
-        vehicleId: r.vehicleId,
-        shiftId: r.shiftId,
-        transitTime: r.transitTime,
-        tollBooth: r.tollBooth,
-        amount: r.amount,
-        provider: r.provider,
-        referenceNo: r.referenceNo,
-        rawData: r.rawData as Prisma.InputJsonValue | undefined,
-        syncedAt: new Date(),
-      })),
-      skipDuplicates: true,
+  findByReferenceNo(referenceNo: string) {
+    return this.prisma.hgsTransit.findUnique({
+      where: { referenceNo },
+      select: { id: true, referenceNo: true },
+    });
+  }
+
+  findExistingReferenceNos(referenceNos: string[]) {
+    return this.prisma.hgsTransit.findMany({
+      where: { referenceNo: { in: referenceNos } },
+      select: { referenceNo: true },
+    });
+  }
+
+  create(data: CreateHgsTransitData, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.hgsTransit.create({
+      data: {
+        vehicleId: data.vehicleId,
+        shiftId: data.shiftId,
+        transitTime: data.transitTime,
+        tollBooth: data.tollBooth,
+        amount: data.amount,
+        provider: data.provider,
+        referenceNo: data.referenceNo,
+        rawData: data.rawData as Prisma.InputJsonValue | undefined,
+        syncedAt: data.syncedAt,
+      },
+      include: HGS_INCLUDE,
     });
   }
 
@@ -57,5 +94,42 @@ export class HgsRepository {
       _sum: { amount: true },
       _count: true,
     });
+  }
+
+  private buildWhereClause(query: HgsListQueryDto): Prisma.HgsTransitWhereInput {
+    const where: Prisma.HgsTransitWhereInput = {};
+
+    if (query.vehicleId) {
+      where.vehicleId = query.vehicleId;
+    }
+
+    if (query.shiftId) {
+      where.shiftId = query.shiftId;
+    }
+
+    if (query.provider) {
+      where.provider = { equals: query.provider, mode: 'insensitive' };
+    }
+
+    if (query.startDate || query.endDate) {
+      where.transitTime = {};
+      if (query.startDate) {
+        where.transitTime.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.transitTime.lte = new Date(query.endDate);
+      }
+    }
+
+    if (query.search) {
+      const term = query.search.trim();
+      where.OR = [
+        { tollBooth: { contains: term, mode: 'insensitive' } },
+        { referenceNo: { contains: term, mode: 'insensitive' } },
+        { provider: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    return where;
   }
 }

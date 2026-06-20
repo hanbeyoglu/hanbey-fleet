@@ -1,7 +1,18 @@
-import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  ParseArrayPipe,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { HgsService } from './hgs.service';
 import { SyncHgsDto } from './dto/sync-hgs.dto';
+import { HgsListQueryDto } from './dto/hgs-list-query.dto';
+import { SyncResultDto } from './dto/sync-result.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '@hanbey-fleet/shared';
 
@@ -12,10 +23,9 @@ export class HgsController {
   constructor(private service: HgsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List HGS transits, optionally filter by vehicleId' })
-  @ApiQuery({ name: 'vehicleId', required: false })
-  findAll(@Query('vehicleId') vehicleId?: string) {
-    return this.service.findAll(vehicleId);
+  @ApiOperation({ summary: 'List HGS transits with filtering, pagination and sorting' })
+  findAll(@Query() query: HgsListQueryDto) {
+    return this.service.findAll(query);
   }
 
   @Get(':id')
@@ -27,10 +37,15 @@ export class HgsController {
   @Post('sync')
   @Roles(Role.OWNER, Role.ADMIN)
   @ApiOperation({
-    summary: 'Sync HGS transits from İş Bankası API (not yet implemented)',
-    description: 'Prepared for future İş Bankası API integration. Returns 501 until implemented.',
+    summary: 'Synchronize HGS transits (simulated bank integration)',
+    description:
+      'Accepts an array of HGS transit records from a provider. Read-only aggregate — no manual CRUD.',
   })
-  syncFromBank(@Body() dto: SyncHgsDto) {
-    return this.service.syncFromBank(dto);
+  @ApiBody({ type: [SyncHgsDto] })
+  sync(
+    @Body(new ParseArrayPipe({ items: SyncHgsDto }))
+    records: SyncHgsDto[],
+  ): Promise<SyncResultDto> {
+    return this.service.sync(records);
   }
 }

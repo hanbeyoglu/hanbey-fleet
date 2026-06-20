@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { TimelineRepository } from './timeline.repository';
 import { CreateTimelineEventDto } from './dto/create-timeline-event.dto';
 
@@ -6,8 +7,8 @@ import { CreateTimelineEventDto } from './dto/create-timeline-event.dto';
 export class TimelineService {
   constructor(private repo: TimelineRepository) {}
 
-  create(dto: CreateTimelineEventDto) {
-    return this.repo.create(dto);
+  create(dto: CreateTimelineEventDto, tx?: Prisma.TransactionClient) {
+    return this.repo.create(dto, tx);
   }
 
   findByVehicle(vehicleId: string, limit?: number) {

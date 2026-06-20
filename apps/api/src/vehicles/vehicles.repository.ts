@@ -39,7 +39,14 @@ export class VehiclesRepository {
   findAllActive() {
     return this.prisma.vehicle.findMany({
       where: { deletedAt: null },
-      select: { id: true, plate: true, brand: true, model: true, year: true },
+      select: { id: true, plate: true, brand: true, model: true, year: true, hgsTag: true },
+    });
+  }
+
+  findAllActivePlates() {
+    return this.prisma.vehicle.findMany({
+      where: { deletedAt: null },
+      select: { id: true, plate: true },
     });
   }
 

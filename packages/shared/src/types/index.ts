@@ -78,6 +78,12 @@ export enum MaintenanceSortField {
   CREATED_AT = 'createdAt',
 }
 
+export enum HgsSortField {
+  TRANSIT_TIME = 'transitTime',
+  AMOUNT = 'amount',
+  CREATED_AT = 'createdAt',
+}
+
 export enum TimelineEventType {
   VEHICLE_CREATED = 'VEHICLE_CREATED',
   VEHICLE_DELETED = 'VEHICLE_DELETED',

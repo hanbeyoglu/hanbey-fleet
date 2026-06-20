@@ -1,18 +1,36 @@
-import { IsUUID, IsDateString, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class SyncHgsDto {
-  @ApiProperty({ description: 'Vehicle ID to sync HGS data for' })
-  @IsUUID()
-  vehicleId: string;
-
-  @ApiPropertyOptional({ description: 'Sync from this date (ISO8601)' })
-  @IsDateString()
+  @ApiProperty({ example: 'HGS-100001' })
   @IsOptional()
-  fromDate?: string;
+  @IsString()
+  referenceNo?: string;
 
-  @ApiPropertyOptional({ description: 'Sync until this date (ISO8601)' })
-  @IsDateString()
+  @ApiProperty({ example: '34ABC123' })
   @IsOptional()
-  toDate?: string;
+  @IsString()
+  vehiclePlate?: string;
+
+  @ApiProperty({ example: '2026-06-21T12:30:00Z' })
+  @IsOptional()
+  @IsString()
+  transitTime?: string;
+
+  @ApiProperty({ example: 'FSM' })
+  @IsOptional()
+  @IsString()
+  tollBooth?: string;
+
+  @ApiProperty({ example: 125.5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  amount?: number;
+
+  @ApiPropertyOptional({ example: 'ISBANK' })
+  @IsOptional()
+  @IsString()
+  provider?: string;
 }

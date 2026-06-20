@@ -96,8 +96,9 @@ export const maintenanceApi = {
 };
 
 export const hgsApi = {
-  list: (vehicleId?: string) => api.get('/hgs', { params: vehicleId ? { vehicleId } : {} }),
+  list: (params?: Record<string, unknown>) => api.get('/hgs', { params }),
   get: (id: string) => api.get(`/hgs/${id}`),
+  sync: (data: unknown) => api.post('/hgs/sync', data),
 };
 
 export const reportsApi = {

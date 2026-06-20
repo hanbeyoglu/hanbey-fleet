@@ -256,7 +256,7 @@ model HgsTransit {
   tollBooth   String
   amount      Decimal   @db.Decimal(10, 2)
   provider    String?
-  referenceNo String?
+  referenceNo String?   @unique
   rawData     Json?
   syncedAt    DateTime?
   createdAt   DateTime  @default(now())

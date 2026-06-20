@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { hgsApi } from '../lib/api';
 import { formatCurrency, formatDateTime, parseDecimal } from '../lib/utils';
-import { asArray, HgsTransitDto } from '../types/api';
+import { HgsTransitDto, unwrapPaginated } from '../types/api';
 
 export function HgsPage() {
   const [transits, setTransits] = useState<HgsTransitDto[]>([]);
@@ -10,7 +10,10 @@ export function HgsPage() {
   useEffect(() => {
     hgsApi
       .list()
-      .then(({ data }) => setTransits(asArray<HgsTransitDto>(data)))
+      .then(({ data }) => {
+        const { data: items } = unwrapPaginated<HgsTransitDto>(data);
+        setTransits(items);
+      })
       .catch(() => setTransits([]))
       .finally(() => setLoading(false));
   }, []);
