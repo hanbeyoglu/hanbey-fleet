@@ -14,6 +14,7 @@ import { TimelineModule } from './timeline/timeline.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ShiftsModule } from './shifts/shifts.module';
+import { DriverReportsModule } from './driver-reports/driver-reports.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ShiftsModule } from './shifts/shifts.module';
     ReportsModule,
     NotificationsModule,
     ShiftsModule,
+    DriverReportsModule,
   ],
 })
 export class AppModule {}

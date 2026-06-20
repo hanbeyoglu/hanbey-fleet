@@ -62,6 +62,16 @@ export class ShiftsRepository {
     });
   }
 
+  findCompletedById(id: string) {
+    return this.prisma.shift.findFirst({
+      where: { id, deletedAt: null, status: ShiftStatus.COMPLETED },
+      include: {
+        ...SHIFT_INCLUDE,
+        driverReport: { select: { id: true } },
+      },
+    });
+  }
+
   findActiveByVehicle(vehicleId: string) {
     return this.prisma.shift.findFirst({
       where: { vehicleId, status: ShiftStatus.ACTIVE, deletedAt: null },

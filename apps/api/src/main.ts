@@ -53,6 +53,7 @@ async function bootstrap() {
     .addTag('Vehicles', 'Vehicle management')
     .addTag('Drivers', 'Driver management')
     .addTag('Shifts', 'Shift operations')
+    .addTag('Driver Reports', 'Driver declarations')
     .addTag('HGS', 'HGS toll transit records')
     .addTag('Expenses', 'Vehicle expenses')
     .addTag('Maintenance', 'Maintenance records')
