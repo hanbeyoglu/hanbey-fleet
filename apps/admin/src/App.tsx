@@ -1,0 +1,49 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { Layout } from './components/Layout';
+import { LoginPage } from './pages/LoginPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { VehiclesPage } from './pages/VehiclesPage';
+import { DriversPage } from './pages/DriversPage';
+import { SettlementsPage } from './pages/SettlementsPage';
+import { ExpensesPage } from './pages/ExpensesPage';
+import { MaintenancePage } from './pages/MaintenancePage';
+import { HgsPage } from './pages/HgsPage';
+import { ReportsPage } from './pages/ReportsPage';
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/vehicles" element={<VehiclesPage />} />
+                <Route path="/drivers" element={<DriversPage />} />
+                <Route path="/settlements" element={<SettlementsPage />} />
+                <Route path="/expenses" element={<ExpensesPage />} />
+                <Route path="/maintenance" element={<MaintenancePage />} />
+                <Route path="/hgs" element={<HgsPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  );
+}

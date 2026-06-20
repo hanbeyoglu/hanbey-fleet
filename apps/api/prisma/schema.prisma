@@ -1,0 +1,300 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  ADMIN
+  DRIVER
+}
+
+enum VehicleStatus {
+  IDLE
+  ACTIVE_SHIFT
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum ShiftStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ShiftType {
+  DAY
+  NIGHT
+}
+
+enum ExpenseCategory {
+  FUEL
+  MAINTENANCE
+  INSURANCE
+  TAX
+  PENALTY
+  CLEANING
+  PARKING
+  OTHER
+}
+
+enum DriverReportSource {
+  MANUAL
+  WHATSAPP
+  MOBILE
+  OCR
+}
+
+// ─────────────────────────────────────────────
+// Core identity and authentication
+// ─────────────────────────────────────────────
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      Role      @default(DRIVER)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  driver        Driver?
+  notifications Notification[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// Fleet Management domain
+// ─────────────────────────────────────────────
+
+model Vehicle {
+  id        String        @id @default(uuid())
+  plate     String        @unique
+  brand     String
+  model     String
+  year      Int
+  color     String?
+  status    VehicleStatus @default(IDLE)
+  hgsTag    String?
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+
+  shifts             Shift[]
+  expenses           Expense[]
+  maintenanceRecords MaintenanceRecord[]
+  hgsTransits        HgsTransit[]
+  timelineEvents     TimelineEvent[]
+
+  @@map("vehicles")
+}
+
+// ─────────────────────────────────────────────
+// Driver Management domain
+// ─────────────────────────────────────────────
+
+model Driver {
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  licenseNo String    @unique
+  phone     String
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user   User    @relation(fields: [userId], references: [id])
+  shifts Shift[]
+
+  @@map("drivers")
+}
+
+// ─────────────────────────────────────────────
+// Operations domain
+// ─────────────────────────────────────────────
+
+model Shift {
+  id           String      @id @default(uuid())
+  vehicleId    String
+  driverId     String
+  plannedStart DateTime
+  plannedEnd   DateTime
+  actualStart  DateTime?
+  actualEnd    DateTime?
+  status       ShiftStatus @default(PLANNED)
+  type         ShiftType?
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  vehicle        Vehicle        @relation(fields: [vehicleId], references: [id])
+  driver         Driver         @relation(fields: [driverId], references: [id])
+  driverReport   DriverReport?
+  hgsTransits    HgsTransit[]
+  expenses       Expense[]
+  timelineEvents TimelineEvent[]
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
+  @@map("shifts")
+}
+
+model DriverReport {
+  id          String             @id @default(uuid())
+  shiftId     String             @unique
+  revenue     Decimal            @db.Decimal(12, 2)
+  declaredHgs Decimal            @db.Decimal(10, 2)
+  notes       String?
+  source      DriverReportSource @default(MANUAL)
+  isApproved  Boolean            @default(false)
+  approvedAt  DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  shift Shift @relation(fields: [shiftId], references: [id])
+
+  @@map("driver_reports")
+}
+
+// ─────────────────────────────────────────────
+// Financial domain
+// ─────────────────────────────────────────────
+
+model Expense {
+  id          String          @id @default(uuid())
+  vehicleId   String
+  shiftId     String?
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(12, 2)
+  note        String?
+  expenseDate DateTime
+  receiptUrl  String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  vehicle           Vehicle            @relation(fields: [vehicleId], references: [id])
+  shift             Shift?             @relation(fields: [shiftId], references: [id])
+  maintenanceRecord MaintenanceRecord?
+
+  @@index([vehicleId])
+  @@index([shiftId])
+  @@index([category])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+// ─────────────────────────────────────────────
+// Maintenance domain
+// ─────────────────────────────────────────────
+
+model MaintenanceRecord {
+  id                     String    @id @default(uuid())
+  vehicleId              String
+  expenseId              String?   @unique
+  description            String
+  cost                   Decimal   @db.Decimal(12, 2)
+  date                   DateTime
+  mileage                Int?
+  serviceProvider        String?
+  warrantyUntil          DateTime?
+  nextMaintenanceMileage Int?
+  notes                  String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  deletedAt              DateTime?
+
+  vehicle Vehicle  @relation(fields: [vehicleId], references: [id])
+  expense Expense? @relation(fields: [expenseId], references: [id])
+
+  @@index([vehicleId])
+  @@map("maintenance_records")
+}
+
+// ─────────────────────────────────────────────
+// Toll Management domain
+// ─────────────────────────────────────────────
+
+model HgsTransit {
+  id          String    @id @default(uuid())
+  vehicleId   String
+  shiftId     String?
+  transitTime DateTime
+  tollBooth   String
+  amount      Decimal   @db.Decimal(10, 2)
+  provider    String?
+  referenceNo String?
+  rawData     Json?
+  syncedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  shift   Shift?  @relation(fields: [shiftId], references: [id])
+
+  @@index([vehicleId])
+  @@index([shiftId])
+  @@index([transitTime])
+  @@map("hgs_transits")
+}
+
+// ─────────────────────────────────────────────
+// Timeline domain
+// ─────────────────────────────────────────────
+
+model TimelineEvent {
+  id          String   @id @default(uuid())
+  vehicleId   String
+  shiftId     String?
+  eventType   String
+  description String
+  eventTime   DateTime @default(now())
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  shift   Shift?  @relation(fields: [shiftId], references: [id])
+
+  @@index([vehicleId])
+  @@index([shiftId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("timeline_events")
+}
+
+// ─────────────────────────────────────────────
+// Notification domain
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("notifications")
+}
