@@ -41,8 +41,23 @@ export enum DriverReportSource {
   OCR = 'OCR',
 }
 
+export enum SortOrder {
+  ASC = 'asc',
+  DESC = 'desc',
+}
+
+export enum VehicleSortField {
+  CREATED_AT = 'createdAt',
+  PLATE = 'plate',
+  BRAND = 'brand',
+  MODEL = 'model',
+  YEAR = 'year',
+  STATUS = 'status',
+}
+
 export enum TimelineEventType {
   VEHICLE_CREATED = 'VEHICLE_CREATED',
+  VEHICLE_DELETED = 'VEHICLE_DELETED',
   VEHICLE_STATUS_CHANGED = 'VEHICLE_STATUS_CHANGED',
   SHIFT_STARTED = 'SHIFT_STARTED',
   SHIFT_COMPLETED = 'SHIFT_COMPLETED',

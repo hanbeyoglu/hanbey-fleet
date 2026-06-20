@@ -32,7 +32,7 @@ export function VehiclesPage() {
   const [error, setError] = useState('');
 
   const load = () => {
-    vehiclesApi.list().then(({ data }) => setVehicles(data)).finally(() => setLoading(false));
+    vehiclesApi.list().then(({ data }) => setVehicles(data.data ?? data)).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);

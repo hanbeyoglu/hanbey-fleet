@@ -28,7 +28,7 @@ export function DashboardPage() {
     ])
       .then(([reportRes, vehiclesRes, driversRes]) => {
         setSummary(reportRes.data);
-        setVehicleCount(vehiclesRes.data.length);
+        setVehicleCount(vehiclesRes.data.meta?.total ?? vehiclesRes.data.data?.length ?? vehiclesRes.data.length ?? 0);
         setDriverCount(driversRes.data.length);
       })
       .catch(console.error)

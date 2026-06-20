@@ -6,12 +6,14 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { VehicleListQueryDto } from './dto/vehicle-list-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '@hanbey-fleet/shared';
 
@@ -22,13 +24,13 @@ export class VehiclesController {
   constructor(private service: VehiclesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all vehicles' })
-  findAll() {
-    return this.service.findAll();
+  @ApiOperation({ summary: 'List vehicles with filtering, pagination and sorting' })
+  findAll(@Query() query: VehicleListQueryDto) {
+    return this.service.findAll(query);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get vehicle by ID with timeline' })
+  @ApiOperation({ summary: 'Get vehicle by ID with active shift and timeline' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.findOne(id);
   }

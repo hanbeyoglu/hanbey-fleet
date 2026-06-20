@@ -99,6 +99,8 @@ model Vehicle {
   hgsTransits        HgsTransit[]
   timelineEvents     TimelineEvent[]
 
+  @@index([status])
+  @@index([createdAt])
   @@map("vehicles")
 }
 

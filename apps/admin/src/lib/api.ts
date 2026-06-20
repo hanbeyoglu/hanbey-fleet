@@ -44,7 +44,7 @@ export const authApi = {
 };
 
 export const vehiclesApi = {
-  list: () => api.get('/vehicles'),
+  list: (params?: Record<string, unknown>) => api.get('/vehicles', { params }),
   get: (id: string) => api.get(`/vehicles/${id}`),
   create: (data: unknown) => api.post('/vehicles', data),
   update: (id: string, data: unknown) => api.patch(`/vehicles/${id}`, data),

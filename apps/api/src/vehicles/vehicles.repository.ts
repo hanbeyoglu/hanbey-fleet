@@ -1,17 +1,39 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma, ShiftStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { VehicleListQueryDto } from './dto/vehicle-list-query.dto';
+
+const ACTIVE_SHIFT_INCLUDE = {
+  shifts: {
+    where: { status: ShiftStatus.ACTIVE, deletedAt: null },
+    include: { driver: { include: { user: { select: { name: true, email: true } } } } },
+    take: 1,
+  },
+  timelineEvents: { orderBy: { eventTime: 'desc' as const }, take: 20 },
+} satisfies Prisma.VehicleInclude;
 
 @Injectable()
 export class VehiclesRepository {
   constructor(private prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.vehicle.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-    });
+  findMany(query: VehicleListQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const sortBy = query.sortBy ?? 'createdAt';
+    const sortOrder = query.sortOrder ?? 'desc';
+    const where = this.buildWhereClause(query);
+
+    return Promise.all([
+      this.prisma.vehicle.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      this.prisma.vehicle.count({ where }),
+    ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
   findAllActive() {
@@ -22,21 +44,24 @@ export class VehiclesRepository {
   }
 
   findById(id: string) {
-    return this.prisma.vehicle.findUnique({
+    return this.prisma.vehicle.findFirst({
       where: { id, deletedAt: null },
-      include: {
-        shifts: {
-          where: { status: 'ACTIVE', deletedAt: null },
-          include: { driver: { include: { user: { select: { name: true, email: true } } } } },
-          take: 1,
-        },
-        timelineEvents: { orderBy: { eventTime: 'desc' }, take: 20 },
-      },
+      include: ACTIVE_SHIFT_INCLUDE,
     });
   }
 
-  findByPlate(plate: string) {
-    return this.prisma.vehicle.findUnique({ where: { plate } });
+  findActiveByPlate(plate: string) {
+    return this.prisma.vehicle.findFirst({
+      where: { plate, deletedAt: null },
+    });
+  }
+
+  hasActiveShift(vehicleId: string) {
+    return this.prisma.shift
+      .count({
+        where: { vehicleId, status: ShiftStatus.ACTIVE, deletedAt: null },
+      })
+      .then((count) => count > 0);
   }
 
   create(dto: CreateVehicleDto) {
@@ -52,5 +77,24 @@ export class VehiclesRepository {
       where: { id },
       data: { deletedAt: new Date() },
     });
+  }
+
+  private buildWhereClause(query: VehicleListQueryDto): Prisma.VehicleWhereInput {
+    const where: Prisma.VehicleWhereInput = { deletedAt: null };
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.search) {
+      const term = query.search.trim();
+      where.OR = [
+        { plate: { contains: term, mode: 'insensitive' } },
+        { brand: { contains: term, mode: 'insensitive' } },
+        { model: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    return where;
   }
 }
