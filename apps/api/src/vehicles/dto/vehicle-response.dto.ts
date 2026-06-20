@@ -23,6 +23,9 @@ export class VehicleResponseDto {
   @ApiProperty({ enum: VehicleStatus })
   status: VehicleStatus;
 
+  @ApiProperty({ example: 125000 })
+  currentMileage: number;
+
   @ApiPropertyOptional({ example: 'HGS-123456' })
   hgsTag?: string | null;
 

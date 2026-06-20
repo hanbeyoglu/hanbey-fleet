@@ -7,6 +7,11 @@ export class CreateTimelineEventDto {
   @IsUUID()
   vehicleId: string;
 
+  @ApiPropertyOptional()
+  @IsUUID()
+  @IsOptional()
+  shiftId?: string;
+
   @ApiProperty({ enum: TimelineEventType })
   @IsString()
   eventType: string;

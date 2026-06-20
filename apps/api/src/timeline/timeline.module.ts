@@ -6,6 +6,6 @@ import { TimelineRepository } from './timeline.repository';
 @Module({
   providers: [TimelineService, TimelineRepository],
   controllers: [TimelineController],
-  exports: [TimelineService],
+  exports: [TimelineService, TimelineRepository],
 })
 export class TimelineModule {}

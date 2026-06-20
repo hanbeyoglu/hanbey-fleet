@@ -55,6 +55,15 @@ export enum VehicleSortField {
   STATUS = 'status',
 }
 
+export enum ShiftSortField {
+  CREATED_AT = 'createdAt',
+  ACTUAL_START = 'actualStart',
+  ACTUAL_END = 'actualEnd',
+  STATUS = 'status',
+  OPENING_MILEAGE = 'openingMileage',
+  CLOSING_MILEAGE = 'closingMileage',
+}
+
 export enum TimelineEventType {
   VEHICLE_CREATED = 'VEHICLE_CREATED',
   VEHICLE_DELETED = 'VEHICLE_DELETED',

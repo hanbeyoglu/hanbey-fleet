@@ -11,7 +11,7 @@ import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleListQueryDto } from './dto/vehicle-list-query.dto';
 import { VehicleMapper } from './mappers/vehicle.mapper';
 import { normalizePlate } from './utils/normalize-plate';
-import { TimelineEventType, PaginatedResponse, VehicleStatus } from '@hanbey-fleet/shared';
+import { TimelineEventType, PaginatedResponse } from '@hanbey-fleet/shared';
 import { VehicleResponseDto, VehicleDetailResponseDto } from './dto/vehicle-response.dto';
 
 @Injectable()
@@ -73,7 +73,13 @@ export class VehiclesService {
     }
 
     if (dto.status && dto.status !== existing.status) {
-      await this.validateStatusChange(existing.id, dto.status);
+      const hasActiveShift = await this.repo.hasActiveShift(id);
+      if (hasActiveShift) {
+        throw new BadRequestException(
+          'Vehicle status is managed by the shift lifecycle and cannot be changed manually while a shift is active',
+        );
+      }
+
       await this.timeline.create({
         vehicleId: id,
         eventType: TimelineEventType.VEHICLE_STATUS_CHANGED,
@@ -105,16 +111,5 @@ export class VehiclesService {
     });
 
     return VehicleMapper.toResponse(vehicle);
-  }
-
-  private async validateStatusChange(vehicleId: string, newStatus: VehicleStatus) {
-    if (newStatus !== VehicleStatus.ACTIVE_SHIFT) return;
-
-    const hasActiveShift = await this.repo.hasActiveShift(vehicleId);
-    if (!hasActiveShift) {
-      throw new BadRequestException(
-        'Cannot set status to ACTIVE_SHIFT without an active shift',
-      );
-    }
   }
 }

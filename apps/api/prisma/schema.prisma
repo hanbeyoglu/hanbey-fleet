@@ -86,8 +86,9 @@ model Vehicle {
   model     String
   year      Int
   color     String?
-  status    VehicleStatus @default(IDLE)
-  hgsTag    String?
+  status         VehicleStatus @default(IDLE)
+  currentMileage Int           @default(0)
+  hgsTag         String?
   notes     String?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
@@ -136,9 +137,12 @@ model Shift {
   plannedEnd   DateTime
   actualStart  DateTime?
   actualEnd    DateTime?
-  status       ShiftStatus @default(PLANNED)
-  type         ShiftType?
-  notes        String?
+  status         ShiftStatus @default(PLANNED)
+  type           ShiftType?
+  openingMileage Int
+  closingMileage Int?
+  cancelReason   String?
+  notes          String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   deletedAt    DateTime?

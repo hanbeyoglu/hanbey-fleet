@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTimelineEventDto } from './dto/create-timeline-event.dto';
 
@@ -6,8 +7,17 @@ import { CreateTimelineEventDto } from './dto/create-timeline-event.dto';
 export class TimelineRepository {
   constructor(private prisma: PrismaService) {}
 
-  create(dto: CreateTimelineEventDto) {
-    return this.prisma.timelineEvent.create({ data: dto });
+  create(dto: CreateTimelineEventDto, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.timelineEvent.create({
+      data: {
+        vehicleId: dto.vehicleId,
+        shiftId: dto.shiftId,
+        eventType: dto.eventType,
+        description: dto.description,
+        metadata: dto.metadata as Prisma.InputJsonValue | undefined,
+      },
+    });
   }
 
   findByVehicle(vehicleId: string, limit = 50) {

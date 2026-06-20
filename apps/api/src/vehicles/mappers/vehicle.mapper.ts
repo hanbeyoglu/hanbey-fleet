@@ -5,7 +5,7 @@ import {
   ActiveShiftSummaryDto,
   TimelineEventSummaryDto,
 } from '../dto/vehicle-response.dto';
-import { PaginatedResponse, PaginationMeta } from '@hanbey-fleet/shared';
+import { PaginatedResponse, PaginationMeta, VehicleStatus } from '@hanbey-fleet/shared';
 
 type VehicleWithRelations = Vehicle & {
   shifts?: Array<
@@ -27,7 +27,8 @@ export class VehicleMapper {
       model: vehicle.model,
       year: vehicle.year,
       color: vehicle.color,
-      status: vehicle.status,
+      status: vehicle.status as VehicleStatus,
+      currentMileage: vehicle.currentMileage,
       hgsTag: vehicle.hgsTag,
       notes: vehicle.notes,
       createdAt: vehicle.createdAt,

@@ -56,6 +56,25 @@ export class VehiclesRepository {
     });
   }
 
+  findByIdForShift(id: string) {
+    return this.prisma.vehicle.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, plate: true, status: true, currentMileage: true, deletedAt: true },
+    });
+  }
+
+  updateOperationalState(
+    id: string,
+    data: { status?: Prisma.VehicleUpdateInput['status']; currentMileage?: number },
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx ?? this.prisma;
+    return client.vehicle.update({
+      where: { id },
+      data,
+    });
+  }
+
   hasActiveShift(vehicleId: string) {
     return this.prisma.shift
       .count({

@@ -13,6 +13,7 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
 import { TimelineModule } from './timeline/timeline.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ShiftsModule } from './shifts/shifts.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     TimelineModule,
     ReportsModule,
     NotificationsModule,
+    ShiftsModule,
   ],
 })
 export class AppModule {}

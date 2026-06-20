@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
+import { ShiftStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { UpdateDriverDto } from './dto/update-driver.dto';
 
 const DRIVER_INCLUDE = {
-  user: { select: { id: true, name: true, email: true, role: true } },
-  assignments: {
-    where: { isActive: true },
+  user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
+  shifts: {
+    where: { status: ShiftStatus.ACTIVE, deletedAt: null },
+    take: 1,
     include: { vehicle: { select: { id: true, plate: true, brand: true, model: true } } },
   },
 };
@@ -24,9 +26,16 @@ export class DriversRepository {
   }
 
   findById(id: string) {
-    return this.prisma.driver.findUnique({
+    return this.prisma.driver.findFirst({
       where: { id, deletedAt: null },
       include: DRIVER_INCLUDE,
+    });
+  }
+
+  findByIdForShift(id: string) {
+    return this.prisma.driver.findFirst({
+      where: { id, deletedAt: null },
+      include: { user: { select: { id: true, name: true, email: true, isActive: true } } },
     });
   }
 
@@ -36,6 +45,14 @@ export class DriversRepository {
 
   findByLicense(licenseNo: string) {
     return this.prisma.driver.findUnique({ where: { licenseNo } });
+  }
+
+  hasActiveShift(driverId: string) {
+    return this.prisma.shift
+      .count({
+        where: { driverId, status: ShiftStatus.ACTIVE, deletedAt: null },
+      })
+      .then((count) => count > 0);
   }
 
   create(dto: CreateDriverDto) {
