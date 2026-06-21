@@ -4,9 +4,11 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import { DriverReportsRepository } from './driver-reports.repository';
 import { ShiftsRepository } from '../shifts/shifts.repository';
 import { TimelineRepository } from '../timeline/timeline.repository';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import { CreateDriverReportDto } from './dto/create-driver-report.dto';
 import { DriverReportResponseDto } from './dto/driver-report-response.dto';
 import { DriverReportMapper } from './mappers/driver-report.mapper';
@@ -18,10 +20,12 @@ export class DriverReportsService {
     private repo: DriverReportsRepository,
     private shiftsRepo: ShiftsRepository,
     private timelineRepo: TimelineRepository,
+    private fleetScope: FleetScopeService,
   ) {}
 
-  async submit(dto: CreateDriverReportDto): Promise<DriverReportResponseDto> {
-    const shift = await this.shiftsRepo.findCompletedById(dto.shiftId);
+  async submit(user: JwtPayload, dto: CreateDriverReportDto): Promise<DriverReportResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const shift = await this.shiftsRepo.findCompletedById(dto.shiftId, scope.fleetOwnerId);
     if (!shift) {
       throw new BadRequestException(
         `Shift ${dto.shiftId} not found or is not COMPLETED`,
@@ -76,8 +80,9 @@ export class DriverReportsService {
     return DriverReportMapper.toResponse(report);
   }
 
-  async approve(id: string, approverId: string): Promise<DriverReportResponseDto> {
-    const report = await this.repo.findById(id);
+  async approve(user: JwtPayload, id: string): Promise<DriverReportResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const report = await this.repo.findById(id, scope.fleetOwnerId);
     if (!report) throw new NotFoundException(`Driver report ${id} not found`);
 
     if (report.isApproved) {
@@ -87,7 +92,7 @@ export class DriverReportsService {
     const vehiclePlate = report.shift?.vehicle?.plate ?? report.shift?.vehicleId ?? 'unknown';
 
     const approved = await this.repo.runInTransaction(async (tx) => {
-      const updated = await this.repo.approve(id, approverId, tx);
+      const updated = await this.repo.approve(id, user.sub, tx);
 
       await this.timelineRepo.create(
         {
@@ -98,7 +103,7 @@ export class DriverReportsService {
           metadata: {
             driverReportId: id,
             shiftId: report.shiftId,
-            approvedById: approverId,
+            approvedById: user.sub,
           },
         },
         tx,
@@ -110,14 +115,16 @@ export class DriverReportsService {
     return DriverReportMapper.toResponse(approved);
   }
 
-  async findOne(id: string): Promise<DriverReportResponseDto> {
-    const report = await this.repo.findById(id);
+  async findOne(user: JwtPayload, id: string): Promise<DriverReportResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const report = await this.repo.findById(id, scope.fleetOwnerId);
     if (!report) throw new NotFoundException(`Driver report ${id} not found`);
     return DriverReportMapper.toResponse(report);
   }
 
-  async findByShiftId(shiftId: string): Promise<DriverReportResponseDto> {
-    const report = await this.repo.findByShiftId(shiftId);
+  async findByShiftId(user: JwtPayload, shiftId: string): Promise<DriverReportResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const report = await this.repo.findByShiftId(shiftId, scope.fleetOwnerId);
     if (!report) {
       throw new NotFoundException(`No driver report found for shift ${shiftId}`);
     }

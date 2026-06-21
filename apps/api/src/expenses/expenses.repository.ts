@@ -31,12 +31,12 @@ export interface UpdateExpenseData {
 export class ExpensesRepository {
   constructor(private prisma: PrismaService) {}
 
-  findMany(query: ExpenseListQueryDto) {
+  findMany(query: ExpenseListQueryDto, fleetOwnerId?: string | null) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy = query.sortBy ?? 'expenseDate';
     const sortOrder = query.sortOrder ?? 'desc';
-    const where = this.buildWhereClause(query);
+    const where = this.buildWhereClause(query, fleetOwnerId);
 
     return Promise.all([
       this.prisma.expense.findMany({
@@ -50,9 +50,13 @@ export class ExpensesRepository {
     ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
-  findById(id: string) {
+  findById(id: string, fleetOwnerId?: string | null) {
     return this.prisma.expense.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        id,
+        deletedAt: null,
+        ...(fleetOwnerId && { vehicle: { fleetOwnerId, deletedAt: null } }),
+      },
       include: EXPENSE_INCLUDE,
     });
   }
@@ -106,8 +110,15 @@ export class ExpensesRepository {
     });
   }
 
-  private buildWhereClause(query: ExpenseListQueryDto): Prisma.ExpenseWhereInput {
+  private buildWhereClause(
+    query: ExpenseListQueryDto,
+    fleetOwnerId?: string | null,
+  ): Prisma.ExpenseWhereInput {
     const where: Prisma.ExpenseWhereInput = { deletedAt: null };
+
+    if (fleetOwnerId) {
+      where.vehicle = { fleetOwnerId, deletedAt: null };
+    }
 
     if (query.category) {
       where.category = query.category;

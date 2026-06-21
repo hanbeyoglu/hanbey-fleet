@@ -27,7 +27,10 @@ export class ReminderService {
         continue;
       }
 
-      await this.notificationsService.notifyFleetManagers({
+      const fleetOwnerId = record.vehicle.fleetOwnerId;
+      if (!fleetOwnerId) continue;
+
+      await this.notificationsService.notifyFleetManagers(fleetOwnerId, {
         type: NotificationType.MAINTENANCE_REMINDER,
         title: 'Maintenance due',
         message: `Vehicle ${record.vehicle.plate} has reached ${record.vehicle.currentMileage} km. Scheduled maintenance at ${record.nextMaintenanceMileage} km.`,
@@ -57,11 +60,14 @@ export class ReminderService {
     for (const record of records) {
       if (!record.warrantyUntil) continue;
 
+      const fleetOwnerId = record.vehicle.fleetOwnerId;
+      if (!fleetOwnerId) continue;
+
       const daysLeft = Math.ceil(
         (record.warrantyUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
       );
 
-      await this.notificationsService.notifyFleetManagers({
+      await this.notificationsService.notifyFleetManagers(fleetOwnerId, {
         type: NotificationType.WARRANTY_REMINDER,
         title: 'Warranty expiring soon',
         message: `Warranty for vehicle ${record.vehicle.plate} (${record.description}) expires in ${daysLeft} day(s).`,
@@ -90,10 +96,13 @@ export class ReminderService {
     let created = 0;
 
     for (const shift of shifts) {
+      const fleetOwnerId = shift.vehicle.fleetOwnerId;
+      if (!fleetOwnerId) continue;
+
       const driverName = shift.driver.user.name;
       const vehiclePlate = shift.vehicle.plate;
 
-      await this.notificationsService.notifyFleetManagers({
+      await this.notificationsService.notifyFleetManagers(fleetOwnerId, {
         type: NotificationType.DRIVER_REPORT_MISSING,
         title: 'Driver report missing',
         message: `Shift for ${driverName} on vehicle ${vehiclePlate} completed without a driver report.`,
@@ -120,7 +129,10 @@ export class ReminderService {
     let created = 0;
 
     for (const settlement of settlements) {
-      await this.notificationsService.notifySettlementMismatch(settlement);
+      const fleetOwnerId = settlement.shift?.vehicle?.fleetOwnerId;
+      if (!fleetOwnerId) continue;
+
+      await this.notificationsService.notifySettlementMismatch(settlement, fleetOwnerId);
       created++;
     }
 

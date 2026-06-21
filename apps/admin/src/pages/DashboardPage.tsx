@@ -81,6 +81,8 @@ export function DashboardPage() {
       vehicle: event.vehiclePlate ? { id: event.vehicleId ?? '', plate: event.vehiclePlate } : undefined,
     })) ?? [];
 
+  const assignments = overview?.assignments;
+
   const stats = [
     { label: "Today's Revenue", value: formatCurrency(today?.revenue), icon: '💰', color: 'text-green-700' },
     { label: "Today's Expenses", value: formatCurrency(today?.expenses), icon: '📋', color: 'text-red-700' },
@@ -90,6 +92,13 @@ export function DashboardPage() {
     { label: 'Active Drivers', value: fleet?.activeDrivers ?? 0, icon: '👤', color: 'text-purple-700' },
     { label: 'Completed Shifts', value: today?.completedShifts ?? 0, icon: '✅', color: 'text-teal-700' },
     { label: 'Maintenance Today', value: today?.maintenanceCount ?? 0, icon: '🔧', color: 'text-yellow-700' },
+  ];
+
+  const assignmentStats = [
+    { label: 'Assigned Vehicles', value: assignments?.assignedVehicles ?? 0, color: 'text-blue-700 bg-blue-50' },
+    { label: 'Unassigned Vehicles', value: assignments?.unassignedVehicles ?? 0, color: 'text-gray-600 bg-gray-50' },
+    { label: 'Assigned Drivers', value: assignments?.assignedDrivers ?? 0, color: 'text-indigo-700 bg-indigo-50' },
+    { label: 'Available Drivers', value: assignments?.availableDrivers ?? 0, color: 'text-green-700 bg-green-50' },
   ];
 
   return (
@@ -111,6 +120,18 @@ export function DashboardPage() {
             <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Assignment Overview</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {assignmentStats.map((stat) => (
+            <div key={stat.label} className={`rounded-lg p-4 text-center ${stat.color}`}>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <div className="text-sm mt-1">{stat.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">

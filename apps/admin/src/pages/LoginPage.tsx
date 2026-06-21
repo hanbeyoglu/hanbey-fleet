@@ -1,21 +1,53 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Role } from '@hanbey-fleet/shared';
 import { useAuth } from '../contexts/AuthContext';
+import { redirectDriverToPortal } from '../lib/portal-urls';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, selectFleet } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setInfo('');
     setLoading(true);
     try {
-      await login(username, password);
+      const { user, memberships } = await login(username, password);
+
+      if (user.role === Role.DRIVER) {
+        const accessToken = localStorage.getItem('accessToken');
+        const refreshToken = localStorage.getItem('refreshToken');
+        localStorage.clear();
+        setInfo('Şoför hesabı ile admin paneline erişemezsiniz. Şoför paneline yönlendiriliyorsunuz.');
+        if (accessToken && refreshToken) {
+          setTimeout(() => redirectDriverToPortal(accessToken, refreshToken), 1500);
+        }
+        return;
+      }
+
+      if (user.role === Role.SUPER_ADMIN) {
+        navigate(memberships.length > 0 ? '/select-fleet' : '/');
+        return;
+      }
+
+      if (memberships.length === 1) {
+        await selectFleet(memberships[0].fleetOwnerId);
+        navigate('/');
+        return;
+      }
+
+      if (memberships.length > 1) {
+        navigate('/select-fleet');
+        return;
+      }
+
       navigate('/');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -60,6 +92,12 @@ export function LoginPage() {
                 placeholder="••••••••"
               />
             </div>
+
+            {info && (
+              <div className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md p-3">
+                {info}
+              </div>
+            )}
 
             {error && (
               <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">

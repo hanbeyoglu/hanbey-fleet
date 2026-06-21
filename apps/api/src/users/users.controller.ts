@@ -8,7 +8,7 @@ import { Role } from '@hanbey-fleet/shared';
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
-@Roles(Role.OWNER, Role.ADMIN)
+@Roles(Role.OWNER, Role.MANAGER)
 @Controller('users')
 export class UsersController {
   constructor(private service: UsersService) {}

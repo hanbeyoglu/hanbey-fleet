@@ -18,37 +18,36 @@ import { Role, JwtPayload } from '@hanbey-fleet/shared';
 
 @ApiTags('Settlements')
 @ApiBearerAuth('access-token')
+@Roles(Role.OWNER, Role.MANAGER)
 @Controller('settlements')
 export class SettlementsController {
   constructor(private service: SettlementsService) {}
 
   @Get()
   @ApiOperation({ summary: 'List settlements with filtering, pagination and sorting' })
-  findAll(@Query() query: SettlementListQueryDto) {
-    return this.service.findAll(query);
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: SettlementListQueryDto) {
+    return this.service.findAll(user, query);
   }
 
   @Post('create')
-  @Roles(Role.OWNER, Role.ADMIN)
   @ApiOperation({ summary: 'Create settlement from an approved driver report' })
-  create(@Body() dto: CreateSettlementDto) {
-    return this.service.create(dto);
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateSettlementDto) {
+    return this.service.create(user, dto);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get settlement by ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.findOne(id);
+  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.findOne(user, id);
   }
 
   @Post(':id/approve')
-  @Roles(Role.OWNER, Role.ADMIN)
   @ApiOperation({ summary: 'Approve a settlement' })
   approve(
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() _dto: ApproveSettlementDto,
-    @CurrentUser() user: JwtPayload,
   ) {
-    return this.service.approve(id, user.sub);
+    return this.service.approve(user, id);
   }
 }

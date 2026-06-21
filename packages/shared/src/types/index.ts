@@ -1,7 +1,14 @@
 export enum Role {
+  SUPER_ADMIN = 'SUPER_ADMIN',
   OWNER = 'OWNER',
-  ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
+  ACCOUNTANT = 'ACCOUNTANT',
   DRIVER = 'DRIVER',
+}
+
+export enum MembershipStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
 }
 
 export enum VehicleStatus {
@@ -110,10 +117,17 @@ export enum SettlementSortField {
   STATUS = 'status',
 }
 
+export enum AssignmentStatus {
+  ACTIVE = 'ACTIVE',
+  RELEASED = 'RELEASED',
+}
+
 export enum TimelineEventType {
   VEHICLE_CREATED = 'VEHICLE_CREATED',
   VEHICLE_DELETED = 'VEHICLE_DELETED',
   VEHICLE_STATUS_CHANGED = 'VEHICLE_STATUS_CHANGED',
+  VEHICLE_ASSIGNED = 'VEHICLE_ASSIGNED',
+  VEHICLE_RELEASED = 'VEHICLE_RELEASED',
   SHIFT_STARTED = 'SHIFT_STARTED',
   SHIFT_COMPLETED = 'SHIFT_COMPLETED',
   SHIFT_CANCELLED = 'SHIFT_CANCELLED',
@@ -170,6 +184,7 @@ export interface JwtPayload {
   sub: string;
   username: string;
   role: Role;
+  fleetOwnerId?: string;
   iat?: number;
   exp?: number;
 }

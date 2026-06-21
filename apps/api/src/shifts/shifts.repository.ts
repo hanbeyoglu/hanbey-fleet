@@ -33,6 +33,11 @@ export type ShiftUpdateData = {
 export class ShiftsRepository {
   constructor(private prisma: PrismaService) {}
 
+  private vehicleFleetFilter(fleetOwnerId?: string | null): Prisma.ShiftWhereInput {
+    if (!fleetOwnerId) return {};
+    return { vehicle: { fleetOwnerId, deletedAt: null } };
+  }
+
   runInTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(fn);
   }
@@ -55,16 +60,21 @@ export class ShiftsRepository {
     });
   }
 
-  findById(id: string) {
+  findById(id: string, fleetOwnerId?: string | null) {
     return this.prisma.shift.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, ...this.vehicleFleetFilter(fleetOwnerId) },
       include: SHIFT_INCLUDE,
     });
   }
 
-  findCompletedById(id: string) {
+  findCompletedById(id: string, fleetOwnerId?: string | null) {
     return this.prisma.shift.findFirst({
-      where: { id, deletedAt: null, status: ShiftStatus.COMPLETED },
+      where: {
+        id,
+        deletedAt: null,
+        status: ShiftStatus.COMPLETED,
+        ...this.vehicleFleetFilter(fleetOwnerId),
+      },
       include: {
         ...SHIFT_INCLUDE,
         driverReport: { select: { id: true } },
@@ -104,18 +114,24 @@ export class ShiftsRepository {
       });
   }
 
-  findActiveByDriver(driverId: string) {
+  findActiveByDriver(driverId: string, fleetOwnerId?: string | null) {
     return this.prisma.shift.findFirst({
-      where: { driverId, status: ShiftStatus.ACTIVE, deletedAt: null },
+      where: {
+        driverId,
+        status: ShiftStatus.ACTIVE,
+        deletedAt: null,
+        ...this.vehicleFleetFilter(fleetOwnerId),
+      },
       include: SHIFT_INCLUDE,
     });
   }
 
-  findCurrent(filters: ShiftCurrentQueryDto) {
+  findCurrent(filters: ShiftCurrentQueryDto, fleetOwnerId?: string | null) {
     return this.prisma.shift.findMany({
       where: {
         status: ShiftStatus.ACTIVE,
         deletedAt: null,
+        ...this.vehicleFleetFilter(fleetOwnerId),
         ...(filters.vehicleId && { vehicleId: filters.vehicleId }),
         ...(filters.driverId && { driverId: filters.driverId }),
       },
@@ -124,12 +140,12 @@ export class ShiftsRepository {
     });
   }
 
-  findHistory(query: ShiftHistoryQueryDto) {
+  findHistory(query: ShiftHistoryQueryDto, fleetOwnerId?: string | null) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy = query.sortBy ?? 'actualStart';
     const sortOrder = query.sortOrder ?? 'desc';
-    const where = this.buildHistoryWhere(query);
+    const where = this.buildHistoryWhere(query, fleetOwnerId);
 
     return Promise.all([
       this.prisma.shift.findMany({
@@ -152,8 +168,14 @@ export class ShiftsRepository {
     });
   }
 
-  private buildHistoryWhere(query: ShiftHistoryQueryDto): Prisma.ShiftWhereInput {
-    const where: Prisma.ShiftWhereInput = { deletedAt: null };
+  private buildHistoryWhere(
+    query: ShiftHistoryQueryDto,
+    fleetOwnerId?: string | null,
+  ): Prisma.ShiftWhereInput {
+    const where: Prisma.ShiftWhereInput = {
+      deletedAt: null,
+      ...this.vehicleFleetFilter(fleetOwnerId),
+    };
 
     if (query.vehicleId) where.vehicleId = query.vehicleId;
     if (query.driverId) where.driverId = query.driverId;

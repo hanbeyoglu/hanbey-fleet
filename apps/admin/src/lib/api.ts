@@ -42,6 +42,15 @@ api.interceptors.response.use(
 export const authApi = {
   login: (username: string, password: string) => api.post('/auth/login', { username, password }),
   me: () => api.get('/auth/me'),
+  selectFleet: (fleetOwnerId: string) =>
+    api.post<{ accessToken: string; refreshToken: string; fleetOwnerId: string; fleetOwnerName: string }>(
+      '/auth/select-fleet',
+      { fleetOwnerId },
+    ),
+  clearFleet: () =>
+    api.post<{ accessToken: string; refreshToken: string; fleetOwnerId: null; fleetOwnerName: null }>(
+      '/auth/clear-fleet',
+    ),
 };
 
 export const vehiclesApi = {
@@ -140,4 +149,25 @@ export const documentsApi = {
   update: (id: string, data: unknown) => api.patch(`/documents/${id}`, data),
   newVersion: (id: string, data: unknown) => api.post(`/documents/${id}/new-version`, data),
   delete: (id: string) => api.delete(`/documents/${id}`),
+};
+
+export const fleetOwnersApi = {
+  list: () => api.get('/fleet-owners'),
+  get: (id: string) => api.get(`/fleet-owners/${id}`),
+  create: (data: unknown) => api.post('/fleet-owners', data),
+  update: (id: string, data: unknown) => api.patch(`/fleet-owners/${id}`, data),
+  delete: (id: string) => api.delete(`/fleet-owners/${id}`),
+  findOrCreate: (data: { phone: string; name?: string; email?: string; address?: string; taxNumber?: string }) =>
+    api.post('/fleet-owners/find-or-create', data),
+  members: (id: string) => api.get(`/fleet-owners/${id}/members`),
+};
+
+export const vehicleAssignmentsApi = {
+  list: (params?: Record<string, unknown>) => api.get('/vehicle-assignments', { params }),
+  get: (id: string) => api.get(`/vehicle-assignments/${id}`),
+  history: (params?: Record<string, unknown>) => api.get('/vehicle-assignments/history', { params }),
+  assign: (data: { vehicleId: string; driverId: string; notes?: string }) =>
+    api.post('/vehicle-assignments', data),
+  release: (id: string, data?: { reason?: string }) =>
+    api.post(`/vehicle-assignments/${id}/release`, data ?? {}),
 };

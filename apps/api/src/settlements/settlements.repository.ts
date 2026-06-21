@@ -6,7 +6,9 @@ import { SettlementListQueryDto } from './dto/settlement-list-query.dto';
 const SETTLEMENT_INCLUDE = {
   shift: {
     include: {
-      vehicle: { select: { id: true, plate: true, brand: true, model: true } },
+      vehicle: {
+        select: { id: true, plate: true, brand: true, model: true, fleetOwnerId: true },
+      },
       driver: { include: { user: { select: { id: true, name: true, username: true } } } },
     },
   },
@@ -33,12 +35,12 @@ export class SettlementsRepository {
     return this.prisma.$transaction(fn);
   }
 
-  findMany(query: SettlementListQueryDto) {
+  findMany(query: SettlementListQueryDto, fleetOwnerId?: string | null) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy = query.sortBy ?? 'createdAt';
     const sortOrder = query.sortOrder ?? 'desc';
-    const where = this.buildWhereClause(query);
+    const where = this.buildWhereClause(query, fleetOwnerId);
 
     return Promise.all([
       this.prisma.settlement.findMany({
@@ -52,16 +54,26 @@ export class SettlementsRepository {
     ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
-  findById(id: string) {
-    return this.prisma.settlement.findUnique({
-      where: { id },
+  findById(id: string, fleetOwnerId?: string | null) {
+    return this.prisma.settlement.findFirst({
+      where: {
+        id,
+        ...(fleetOwnerId && {
+          shift: { vehicle: { fleetOwnerId, deletedAt: null } },
+        }),
+      },
       include: SETTLEMENT_INCLUDE,
     });
   }
 
-  findByShiftId(shiftId: string) {
-    return this.prisma.settlement.findUnique({
-      where: { shiftId },
+  findByShiftId(shiftId: string, fleetOwnerId?: string | null) {
+    return this.prisma.settlement.findFirst({
+      where: {
+        shiftId,
+        ...(fleetOwnerId && {
+          shift: { vehicle: { fleetOwnerId, deletedAt: null } },
+        }),
+      },
       include: SETTLEMENT_INCLUDE,
     });
   }
@@ -113,15 +125,22 @@ export class SettlementsRepository {
     });
   }
 
-  private buildWhereClause(query: SettlementListQueryDto): Prisma.SettlementWhereInput {
+  private buildWhereClause(
+    query: SettlementListQueryDto,
+    fleetOwnerId?: string | null,
+  ): Prisma.SettlementWhereInput {
     const where: Prisma.SettlementWhereInput = {};
 
     if (query.status) {
       where.status = query.status;
     }
 
-    if (query.driverId || query.vehicleId || query.startDate || query.endDate) {
+    if (fleetOwnerId || query.driverId || query.vehicleId || query.startDate || query.endDate) {
       where.shift = {};
+
+      if (fleetOwnerId) {
+        where.shift.vehicle = { fleetOwnerId, deletedAt: null };
+      }
 
       if (query.driverId) {
         where.shift.driverId = query.driverId;

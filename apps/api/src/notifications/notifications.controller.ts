@@ -5,10 +5,12 @@ import { NotificationListQueryDto } from './dto/notification-list-query.dto';
 import { NotificationResponseDto } from './dto/notification-response.dto';
 import { UnreadCountDto } from './dto/unread-count.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { JwtPayload, PaginatedResponse } from '@hanbey-fleet/shared';
+import { Roles } from '../common/decorators/roles.decorator';
+import { JwtPayload, PaginatedResponse, Role } from '@hanbey-fleet/shared';
 
 @ApiTags('Notifications')
 @ApiBearerAuth('access-token')
+@Roles(Role.OWNER, Role.MANAGER)
 @Controller('notifications')
 export class NotificationsController {
   constructor(private service: NotificationsService) {}

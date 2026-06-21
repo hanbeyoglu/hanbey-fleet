@@ -4,10 +4,12 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import { SettlementsRepository } from './settlements.repository';
 import { DriverReportsRepository } from '../driver-reports/driver-reports.repository';
 import { TimelineService } from '../timeline/timeline.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import { CreateSettlementDto } from './dto/create-settlement.dto';
 import { SettlementListQueryDto } from './dto/settlement-list-query.dto';
 import { SettlementResponseDto } from './dto/settlement-response.dto';
@@ -25,12 +27,15 @@ export class SettlementsService {
     private driverReportsRepo: DriverReportsRepository,
     private timeline: TimelineService,
     private notificationsService: NotificationsService,
+    private fleetScope: FleetScopeService,
   ) {}
 
   async findAll(
+    user: JwtPayload,
     query: SettlementListQueryDto,
   ): Promise<PaginatedResponse<SettlementResponseDto>> {
-    const { data, total, page, limit } = await this.repo.findMany(query);
+    const scope = this.fleetScope.resolve(user);
+    const { data, total, page, limit } = await this.repo.findMany(query, scope.fleetOwnerId);
 
     return SettlementMapper.toPaginatedResponse(data, {
       total,
@@ -40,14 +45,16 @@ export class SettlementsService {
     });
   }
 
-  async findOne(id: string): Promise<SettlementResponseDto> {
-    const settlement = await this.repo.findById(id);
+  async findOne(user: JwtPayload, id: string): Promise<SettlementResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const settlement = await this.repo.findById(id, scope.fleetOwnerId);
     if (!settlement) throw new NotFoundException(`Settlement ${id} not found`);
     return SettlementMapper.toResponse(settlement);
   }
 
-  async create(dto: CreateSettlementDto): Promise<SettlementResponseDto> {
-    const report = await this.driverReportsRepo.findById(dto.driverReportId);
+  async create(user: JwtPayload, dto: CreateSettlementDto): Promise<SettlementResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const report = await this.driverReportsRepo.findById(dto.driverReportId, scope.fleetOwnerId);
     if (!report) {
       throw new NotFoundException(`Driver report ${dto.driverReportId} not found`);
     }
@@ -58,7 +65,7 @@ export class SettlementsService {
       );
     }
 
-    const existing = await this.repo.findByShiftId(report.shiftId);
+    const existing = await this.repo.findByShiftId(report.shiftId, scope.fleetOwnerId);
     if (existing) {
       throw new ConflictException('A settlement already exists for this shift');
     }
@@ -121,17 +128,21 @@ export class SettlementsService {
     });
 
     if (settlement.status === SettlementStatus.MISMATCH) {
-      const withShift = await this.repo.findById(settlement.id);
+      const withShift = await this.repo.findById(settlement.id, scope.fleetOwnerId);
       if (withShift) {
-        await this.notificationsService.notifySettlementMismatch(withShift);
+        const fleetOwnerId = withShift.shift?.vehicle?.fleetOwnerId;
+        if (fleetOwnerId) {
+          await this.notificationsService.notifySettlementMismatch(withShift, fleetOwnerId);
+        }
       }
     }
 
     return SettlementMapper.toResponse(settlement);
   }
 
-  async approve(id: string, approverId: string): Promise<SettlementResponseDto> {
-    const settlement = await this.repo.findById(id);
+  async approve(user: JwtPayload, id: string): Promise<SettlementResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const settlement = await this.repo.findById(id, scope.fleetOwnerId);
     if (!settlement) throw new NotFoundException(`Settlement ${id} not found`);
 
     if (settlement.status === SettlementStatus.APPROVED) {
@@ -142,7 +153,7 @@ export class SettlementsService {
       settlement.shift?.vehicle?.plate ?? settlement.shift?.vehicleId ?? 'unknown';
 
     const approved = await this.repo.runInTransaction(async (tx) => {
-      const updated = await this.repo.approve(id, approverId, tx);
+      const updated = await this.repo.approve(id, user.sub, tx);
 
       await this.timeline.create(
         {
@@ -153,7 +164,7 @@ export class SettlementsService {
           metadata: {
             settlementId: id,
             shiftId: settlement.shiftId,
-            approvedById: approverId,
+            approvedById: user.sub,
             netRevenue: this.toNumber(settlement.netRevenue),
           },
         },

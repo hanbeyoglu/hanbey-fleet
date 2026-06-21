@@ -57,6 +57,31 @@ One driver belongs to one user account.
 
 ⸻
 
+vehicle_assignments
+
+Records the long-term assignment of a vehicle to a driver.
+
+Independent from shifts. A driver may hold a vehicle assignment
+while multiple shifts are created during that period.
+
+Fields:
+
+- vehicleId
+- driverId
+- assignedById
+- assignedAt
+- releasedAt (nullable — null means ACTIVE)
+- releaseReason
+- notes
+
+Status (ACTIVE/RELEASED) is computed. Not stored.
+
+Only one active assignment per vehicle (BR-120).
+Only one active assignment per driver (BR-121).
+Assignments are never deleted or soft-deleted (BR-124).
+
+⸻
+
 vehicles
 
 Stores physical vehicles.

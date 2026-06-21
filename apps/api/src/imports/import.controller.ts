@@ -6,42 +6,46 @@ import { OcrImportDto, WhatsAppImportDto } from './dto/source-import.dto';
 import { ImportListQueryDto } from './dto/import-list-query.dto';
 import { ImportResponseDto } from './dto/import-response.dto';
 import { Roles } from '../common/decorators/roles.decorator';
-import { Role, PaginatedResponse } from '@hanbey-fleet/shared';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Role, JwtPayload, PaginatedResponse } from '@hanbey-fleet/shared';
 
 @ApiTags('Imports')
 @ApiBearerAuth('access-token')
 @Controller('imports')
-@Roles(Role.OWNER, Role.ADMIN)
+@Roles(Role.OWNER, Role.MANAGER)
 export class ImportController {
   constructor(private service: ImportService) {}
 
   @Post('manual')
   @ApiOperation({ summary: 'Import driver declaration from raw manual text' })
-  importManual(@Body() dto: CreateImportDto): Promise<ImportResponseDto> {
-    return this.service.importManual(dto);
+  importManual(@CurrentUser() user: JwtPayload, @Body() dto: CreateImportDto): Promise<ImportResponseDto> {
+    return this.service.importManual(user, dto);
   }
 
   @Post('ocr')
   @ApiOperation({ summary: 'Import driver declaration from simulated OCR text' })
-  importOcr(@Body() dto: OcrImportDto): Promise<ImportResponseDto> {
-    return this.service.importOcr(dto);
+  importOcr(@CurrentUser() user: JwtPayload, @Body() dto: OcrImportDto): Promise<ImportResponseDto> {
+    return this.service.importOcr(user, dto);
   }
 
   @Post('whatsapp')
   @ApiOperation({ summary: 'Import driver declaration from simulated WhatsApp payload' })
-  importWhatsApp(@Body() dto: WhatsAppImportDto): Promise<ImportResponseDto> {
-    return this.service.importWhatsApp(dto);
+  importWhatsApp(@CurrentUser() user: JwtPayload, @Body() dto: WhatsAppImportDto): Promise<ImportResponseDto> {
+    return this.service.importWhatsApp(user, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List import history' })
-  findAll(@Query() query: ImportListQueryDto): Promise<PaginatedResponse<ImportResponseDto>> {
-    return this.service.findAll(query);
+  findAll(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ImportListQueryDto,
+  ): Promise<PaginatedResponse<ImportResponseDto>> {
+    return this.service.findAll(user, query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get import job detail' })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<ImportResponseDto> {
-    return this.service.findOne(id);
+  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string): Promise<ImportResponseDto> {
+    return this.service.findOne(user, id);
   }
 }

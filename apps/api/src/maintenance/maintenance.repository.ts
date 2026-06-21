@@ -37,12 +37,12 @@ export interface UpdateMaintenanceData {
 export class MaintenanceRepository {
   constructor(private prisma: PrismaService) {}
 
-  findMany(query: MaintenanceListQueryDto) {
+  findMany(query: MaintenanceListQueryDto, fleetOwnerId?: string | null) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy = query.sortBy ?? 'date';
     const sortOrder = query.sortOrder ?? 'desc';
-    const where = this.buildWhereClause(query);
+    const where = this.buildWhereClause(query, fleetOwnerId);
 
     return Promise.all([
       this.prisma.maintenanceRecord.findMany({
@@ -56,9 +56,13 @@ export class MaintenanceRepository {
     ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
-  findById(id: string) {
+  findById(id: string, fleetOwnerId?: string | null) {
     return this.prisma.maintenanceRecord.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        id,
+        deletedAt: null,
+        ...(fleetOwnerId && { vehicle: { fleetOwnerId, deletedAt: null } }),
+      },
       include: MAINTENANCE_INCLUDE,
     });
   }
@@ -130,8 +134,15 @@ export class MaintenanceRepository {
     });
   }
 
-  private buildWhereClause(query: MaintenanceListQueryDto): Prisma.MaintenanceRecordWhereInput {
+  private buildWhereClause(
+    query: MaintenanceListQueryDto,
+    fleetOwnerId?: string | null,
+  ): Prisma.MaintenanceRecordWhereInput {
     const where: Prisma.MaintenanceRecordWhereInput = { deletedAt: null };
+
+    if (fleetOwnerId) {
+      where.vehicle = { fleetOwnerId, deletedAt: null };
+    }
 
     if (query.vehicleId) {
       where.vehicleId = query.vehicleId;

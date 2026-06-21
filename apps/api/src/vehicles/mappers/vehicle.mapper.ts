@@ -19,6 +19,11 @@ type VehicleWithRelations = Vehicle & {
 };
 
 export class VehicleMapper {
+  static toNumber(value: { toNumber(): number } | number | null | undefined): number {
+    if (value === null || value === undefined) return 0;
+    return typeof value === 'number' ? value : value.toNumber();
+  }
+
   static toResponse(vehicle: Vehicle): VehicleResponseDto {
     return {
       id: vehicle.id,
@@ -29,8 +34,10 @@ export class VehicleMapper {
       color: vehicle.color,
       status: vehicle.status as VehicleStatus,
       currentMileage: vehicle.currentMileage,
+      dailyFee: VehicleMapper.toNumber(vehicle.dailyFee),
       hgsTag: vehicle.hgsTag,
       notes: vehicle.notes,
+      fleetOwnerId: vehicle.fleetOwnerId,
       createdAt: vehicle.createdAt,
       updatedAt: vehicle.updatedAt,
     };

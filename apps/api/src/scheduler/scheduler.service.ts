@@ -238,7 +238,7 @@ export class SchedulerService implements OnModuleInit {
       }
 
       case SchedulerJobName.HGS_SYNC: {
-        const result = await this.hgsService.sync([]);
+        const result = await this.hgsService.syncRecords([]);
         return { ...result };
       }
 

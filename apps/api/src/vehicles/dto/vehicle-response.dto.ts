@@ -26,11 +26,17 @@ export class VehicleResponseDto {
   @ApiProperty({ example: 125000 })
   currentMileage: number;
 
+  @ApiProperty({ example: 5000 })
+  dailyFee: number;
+
   @ApiPropertyOptional({ example: 'HGS-123456' })
   hgsTag?: string | null;
 
   @ApiPropertyOptional()
   notes?: string | null;
+
+  @ApiPropertyOptional({ description: 'Fleet owner ID (BR-151)' })
+  fleetOwnerId?: string | null;
 
   @ApiProperty()
   createdAt: Date;

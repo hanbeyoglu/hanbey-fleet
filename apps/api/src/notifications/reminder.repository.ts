@@ -14,7 +14,7 @@ export class ReminderRepository {
         vehicle: { deletedAt: null },
       },
       include: {
-        vehicle: { select: { id: true, plate: true, currentMileage: true } },
+        vehicle: { select: { id: true, plate: true, currentMileage: true, fleetOwnerId: true } },
       },
     });
   }
@@ -31,7 +31,7 @@ export class ReminderRepository {
         vehicle: { deletedAt: null },
       },
       include: {
-        vehicle: { select: { id: true, plate: true } },
+        vehicle: { select: { id: true, plate: true, fleetOwnerId: true } },
       },
     });
   }
@@ -45,7 +45,7 @@ export class ReminderRepository {
         driverReport: null,
       },
       include: {
-        vehicle: { select: { id: true, plate: true } },
+        vehicle: { select: { id: true, plate: true, fleetOwnerId: true } },
         driver: { select: { id: true, user: { select: { name: true } } } },
       },
     });
@@ -59,7 +59,7 @@ export class ReminderRepository {
           select: {
             id: true,
             vehicleId: true,
-            vehicle: { select: { plate: true } },
+            vehicle: { select: { plate: true, fleetOwnerId: true } },
           },
         },
       },

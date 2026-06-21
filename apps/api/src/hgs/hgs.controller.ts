@@ -14,28 +14,29 @@ import { SyncHgsDto } from './dto/sync-hgs.dto';
 import { HgsListQueryDto } from './dto/hgs-list-query.dto';
 import { SyncResultDto } from './dto/sync-result.dto';
 import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '@hanbey-fleet/shared';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Role, JwtPayload } from '@hanbey-fleet/shared';
 
 @ApiTags('HGS')
 @ApiBearerAuth('access-token')
+@Roles(Role.OWNER, Role.MANAGER)
 @Controller('hgs')
 export class HgsController {
   constructor(private service: HgsService) {}
 
   @Get()
   @ApiOperation({ summary: 'List HGS transits with filtering, pagination and sorting' })
-  findAll(@Query() query: HgsListQueryDto) {
-    return this.service.findAll(query);
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: HgsListQueryDto) {
+    return this.service.findAll(user, query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get HGS transit by ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.findOne(id);
+  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.findOne(user, id);
   }
 
   @Post('sync')
-  @Roles(Role.OWNER, Role.ADMIN)
   @ApiOperation({
     summary: 'Synchronize HGS transits (simulated bank integration)',
     description:
@@ -43,9 +44,10 @@ export class HgsController {
   })
   @ApiBody({ type: [SyncHgsDto] })
   sync(
+    @CurrentUser() user: JwtPayload,
     @Body(new ParseArrayPipe({ items: SyncHgsDto }))
     records: SyncHgsDto[],
   ): Promise<SyncResultDto> {
-    return this.service.sync(records);
+    return this.service.sync(user, records);
   }
 }

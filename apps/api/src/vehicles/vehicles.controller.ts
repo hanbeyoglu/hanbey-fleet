@@ -15,44 +15,48 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleListQueryDto } from './dto/vehicle-list-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '@hanbey-fleet/shared';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Role, JwtPayload } from '@hanbey-fleet/shared';
 
 @ApiTags('Vehicles')
 @ApiBearerAuth('access-token')
+@Roles(Role.SUPER_ADMIN, Role.OWNER, Role.MANAGER)
 @Controller('vehicles')
 export class VehiclesController {
   constructor(private service: VehiclesService) {}
 
   @Get()
   @ApiOperation({ summary: 'List vehicles with filtering, pagination and sorting' })
-  findAll(@Query() query: VehicleListQueryDto) {
-    return this.service.findAll(query);
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: VehicleListQueryDto) {
+    return this.service.findAll(user, query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get vehicle by ID with active shift and timeline' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.findOne(id);
+  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.findOne(user, id);
   }
 
   @Post()
-  @Roles(Role.OWNER, Role.ADMIN)
   @ApiOperation({ summary: 'Register a new vehicle' })
-  create(@Body() dto: CreateVehicleDto) {
-    return this.service.create(dto);
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateVehicleDto) {
+    return this.service.create(user, dto);
   }
 
   @Patch(':id')
-  @Roles(Role.OWNER, Role.ADMIN)
   @ApiOperation({ summary: 'Update vehicle details' })
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateVehicleDto) {
-    return this.service.update(id, dto);
+  update(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateVehicleDto,
+  ) {
+    return this.service.update(user, id, dto);
   }
 
   @Delete(':id')
-  @Roles(Role.OWNER)
+  @Roles(Role.SUPER_ADMIN, Role.OWNER)
   @ApiOperation({ summary: 'Soft delete vehicle' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.remove(id);
+  remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.remove(user, id);
   }
 }

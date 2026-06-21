@@ -49,7 +49,7 @@ Responsible for:
 
 - Drivers
 - Driver Accounts
-- Assignments
+- Vehicle Assignments (independent from Shifts)
 
 ⸻
 
@@ -200,6 +200,18 @@ ParserService is pure business logic with no database access.
 Aggregate Roots
 
 The following entities are Aggregate Roots.
+
+VehicleAssignment
+
+Represents the relationship between a vehicle and a responsible driver
+over a period of time that may span multiple shifts.
+
+An assignment is independent from Shift. A driver may be assigned
+to a vehicle for days while multiple shifts are created during that period.
+
+Status (ACTIVE/RELEASED) is computed from releasedAt: null = ACTIVE, set = RELEASED.
+
+Assignments are immutable (BR-124). They can only be released, never deleted.
 
 Vehicle
 
@@ -373,6 +385,8 @@ Examples:
 VehicleCreated
 
 VehicleAssigned
+
+VehicleReleased
 
 ShiftStarted
 

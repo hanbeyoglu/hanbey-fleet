@@ -62,13 +62,18 @@ export class ImportRepository {
     });
   }
 
-  findMany(query: ImportListQueryDto) {
+  findMany(query: ImportListQueryDto, fleetOwnerId?: string | null) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const where: Prisma.ImportJobWhereInput = {
       deletedAt: null,
       ...(query.status && { status: query.status }),
       ...(query.source && { source: query.source }),
+      ...(fleetOwnerId && {
+        driverReport: {
+          shift: { vehicle: { fleetOwnerId, deletedAt: null } },
+        },
+      }),
     };
 
     return Promise.all([
@@ -83,9 +88,17 @@ export class ImportRepository {
     ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
-  findById(id: string) {
+  findById(id: string, fleetOwnerId?: string | null) {
     return this.prisma.importJob.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        id,
+        deletedAt: null,
+        ...(fleetOwnerId && {
+          driverReport: {
+            shift: { vehicle: { fleetOwnerId, deletedAt: null } },
+          },
+        }),
+      },
       include: IMPORT_INCLUDE,
     });
   }

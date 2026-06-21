@@ -62,6 +62,7 @@ async function bootstrap() {
     .addTag('Timeline', 'Vehicle timeline events')
     .addTag('Reports', 'Financial reports')
     .addTag('Notifications', 'User notifications')
+    .addTag('Driver Portal', 'Driver-facing portal endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

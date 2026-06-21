@@ -102,6 +102,20 @@ export class ComplianceSummaryDto {
   expiredDocuments: ExpiredDocumentSummaryDto[];
 }
 
+export class AssignmentSummaryDto {
+  @ApiProperty({ description: 'Vehicles with an active assignment (BR-128)' })
+  assignedVehicles: number;
+
+  @ApiProperty({ description: 'Vehicles without an active assignment (BR-128)' })
+  unassignedVehicles: number;
+
+  @ApiProperty({ description: 'Drivers with an active assignment (BR-128)' })
+  assignedDrivers: number;
+
+  @ApiProperty({ description: 'Drivers without an active assignment (BR-128)' })
+  availableDrivers: number;
+}
+
 export class DashboardOverviewDto {
   @ApiProperty({ example: '2026-06-20' })
   date: string;
@@ -111,6 +125,9 @@ export class DashboardOverviewDto {
 
   @ApiProperty({ type: FleetStatusDto })
   fleet: FleetStatusDto;
+
+  @ApiProperty({ type: AssignmentSummaryDto })
+  assignments: AssignmentSummaryDto;
 
   @ApiProperty({ type: TimelineSummaryDto })
   timeline: TimelineSummaryDto;

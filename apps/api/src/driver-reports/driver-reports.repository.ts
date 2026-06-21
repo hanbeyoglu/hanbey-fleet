@@ -59,16 +59,26 @@ export class DriverReportsRepository {
     });
   }
 
-  findById(id: string) {
-    return this.prisma.driverReport.findUnique({
-      where: { id },
+  findById(id: string, fleetOwnerId?: string | null) {
+    return this.prisma.driverReport.findFirst({
+      where: {
+        id,
+        ...(fleetOwnerId && {
+          shift: { vehicle: { fleetOwnerId, deletedAt: null } },
+        }),
+      },
       include: DRIVER_REPORT_INCLUDE,
     });
   }
 
-  findByShiftId(shiftId: string) {
-    return this.prisma.driverReport.findUnique({
-      where: { shiftId },
+  findByShiftId(shiftId: string, fleetOwnerId?: string | null) {
+    return this.prisma.driverReport.findFirst({
+      where: {
+        shiftId,
+        ...(fleetOwnerId && {
+          shift: { vehicle: { fleetOwnerId, deletedAt: null } },
+        }),
+      },
       include: DRIVER_REPORT_INCLUDE,
     });
   }

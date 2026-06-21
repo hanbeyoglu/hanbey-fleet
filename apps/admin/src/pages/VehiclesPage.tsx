@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, Fragment } from 'react';
-import { shiftsApi, vehiclesApi } from '../lib/api';
+import { fleetOwnersApi, shiftsApi, vehiclesApi } from '../lib/api';
 import { TimelineFeed } from '../components/TimelineFeed';
 import { VehicleStatus } from '@hanbey-fleet/shared';
 import {
@@ -41,6 +41,7 @@ export function VehiclesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [vehicleDetail, setVehicleDetail] = useState<VehicleDetailResponseDto | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [fleetOwners, setFleetOwners] = useState<{ id: string; name: string }[]>([]);
   const [form, setForm] = useState({
     plate: '',
     brand: '',
@@ -48,9 +49,18 @@ export function VehiclesPage() {
     year: new Date().getFullYear(),
     color: '',
     hgsTag: '',
+    dailyFee: '5000',
+    fleetOwnerId: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fleetOwnersApi
+      .list()
+      .then(({ data }) => setFleetOwners(Array.isArray(data) ? data : []))
+      .catch(() => setFleetOwners([]));
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -102,7 +112,11 @@ export function VehiclesPage() {
     setSaving(true);
     setError('');
     try {
-      await vehiclesApi.create({ ...form, year: Number(form.year) });
+      await vehiclesApi.create({
+        ...form,
+        year: Number(form.year),
+        dailyFee: Number(form.dailyFee),
+      });
       setShowForm(false);
       setForm({
         plate: '',
@@ -111,6 +125,8 @@ export function VehiclesPage() {
         year: new Date().getFullYear(),
         color: '',
         hgsTag: '',
+        dailyFee: '5000',
+        fleetOwnerId: '',
       });
       load();
     } catch (err: unknown) {
@@ -147,6 +163,20 @@ export function VehiclesPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">Register New Vehicle</h2>
           <form onSubmit={handleCreate} className="grid grid-cols-2 gap-4">
+            {/* Fleet Owner selector — BR-151 */}
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fleet Owner</label>
+              <select
+                value={form.fleetOwnerId}
+                onChange={(e) => setForm((p) => ({ ...p, fleetOwnerId: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">— Select fleet owner (optional) —</option>
+                {fleetOwners.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </div>
             {[
               { name: 'plate', label: 'Plate', placeholder: '34 ABC 123' },
               { name: 'brand', label: 'Brand', placeholder: 'Toyota' },
@@ -154,6 +184,7 @@ export function VehiclesPage() {
               { name: 'year', label: 'Year', placeholder: '2022', type: 'number' },
               { name: 'color', label: 'Color', placeholder: 'White' },
               { name: 'hgsTag', label: 'HGS Tag', placeholder: 'HGS-123456' },
+              { name: 'dailyFee', label: 'Daily Fee (₺)', placeholder: '5000', type: 'number' },
             ].map((f) => (
               <div key={f.name}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}</label>
@@ -201,6 +232,7 @@ export function VehiclesPage() {
                   'Plate',
                   'Brand / Model',
                   'Year',
+                  'Daily Fee',
                   'Mileage',
                   'Status',
                   'Active Driver',
@@ -236,6 +268,11 @@ export function VehiclesPage() {
                       </td>
                       <td className="px-4 py-3">{v.year ?? '—'}</td>
                       <td className="px-4 py-3">
+                        {v.dailyFee != null
+                          ? `${v.dailyFee.toLocaleString('tr-TR')} ₺`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3">
                         {v.currentMileage != null
                           ? `${v.currentMileage.toLocaleString('tr-TR')} km`
                           : '—'}
@@ -268,7 +305,7 @@ export function VehiclesPage() {
                     </tr>
                     {isExpanded && (
                       <tr key={`${v.id}-detail`}>
-                        <td colSpan={7} className="px-4 py-4 bg-gray-50">
+                        <td colSpan={8} className="px-4 py-4 bg-gray-50">
                           {detailLoading ? (
                             <div className="flex justify-center py-6">
                               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -330,7 +367,7 @@ export function VehiclesPage() {
               })}
               {vehicles.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                     No vehicles registered yet.
                   </td>
                 </tr>

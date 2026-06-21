@@ -66,8 +66,11 @@ export class NotificationsService {
     return { updated: result.count };
   }
 
-  async notifyFleetManagers(payload: FleetNotificationPayload): Promise<void> {
-    const managers = await this.usersRepo.findFleetManagers();
+  async notifyFleetManagers(
+    fleetOwnerId: string,
+    payload: FleetNotificationPayload,
+  ): Promise<void> {
+    const managers = await this.usersRepo.findFleetManagersByFleet(fleetOwnerId);
 
     await Promise.all(
       managers.map(async (manager) => {
@@ -93,19 +96,22 @@ export class NotificationsService {
     );
   }
 
-  async notifySettlementMismatch(settlement: {
+  async notifySettlementMismatch(
+    settlement: {
     id: string;
     shiftId: string;
     difference: { toNumber(): number } | number;
-    shift?: { vehicle?: { plate?: string } | null } | null;
-  }): Promise<void> {
+    shift?: { vehicle?: { plate?: string; fleetOwnerId?: string | null } | null } | null;
+  },
+    fleetOwnerId: string,
+  ): Promise<void> {
     const plate = settlement.shift?.vehicle?.plate ?? 'unknown';
     const difference =
       typeof settlement.difference === 'number'
         ? settlement.difference
         : settlement.difference.toNumber();
 
-    await this.notifyFleetManagers({
+    await this.notifyFleetManagers(fleetOwnerId, {
       type: NotificationType.SETTLEMENT_MISMATCH,
       title: 'Settlement mismatch detected',
       message: `Settlement for vehicle ${plate} has a HGS difference of ${difference.toFixed(2)} TRY.`,

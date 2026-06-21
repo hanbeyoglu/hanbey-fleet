@@ -7,6 +7,7 @@ const USER_SELECT = {
   username: true,
   name: true,
   email: true,
+  phone: true,
   role: true,
   isActive: true,
   createdAt: true,
@@ -17,6 +18,7 @@ interface CreateUserData {
   name: string;
   username: string;
   email?: string;
+  phone?: string;
   password: string;
   role?: Role;
 }
@@ -60,12 +62,33 @@ export class UsersRepository {
     });
   }
 
+  findByPhone(phone: string) {
+    return this.prisma.user.findUnique({
+      where: { phone },
+      select: USER_SELECT,
+    });
+  }
+
+  findFleetManagersByFleet(fleetOwnerId: string) {
+    return this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        role: { in: [Role.OWNER, Role.MANAGER] },
+        fleetMemberships: {
+          some: { fleetOwnerId, status: 'ACTIVE' },
+        },
+      },
+      select: { id: true },
+    });
+  }
+
   findFleetManagers() {
     return this.prisma.user.findMany({
       where: {
         deletedAt: null,
         isActive: true,
-        role: { in: [Role.OWNER, Role.ADMIN] },
+        role: { in: [Role.OWNER, Role.MANAGER] },
       },
       select: { id: true },
     });

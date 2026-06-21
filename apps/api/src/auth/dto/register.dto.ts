@@ -16,6 +16,12 @@ export class RegisterDto {
   @IsOptional()
   email?: string;
 
+  // BR-153: Phone is globally unique — identity of a person
+  @ApiPropertyOptional({ example: '+90 555 123 4567', description: 'Globally unique phone number (BR-153)' })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
   @ApiProperty({ example: 'password123', minLength: 6 })
   @IsString()
   @MinLength(6)

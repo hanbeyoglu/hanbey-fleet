@@ -8,11 +8,14 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { FleetScopeGuard } from '../common/fleet/fleet-scope.guard';
 import { UsersModule } from '../users/users.module';
+import { FleetOwnersModule } from '../fleet-owners/fleet-owners.module';
 
 @Module({
   imports: [
     UsersModule,
+    FleetOwnersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -28,6 +31,7 @@ import { UsersModule } from '../users/users.module';
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: FleetScopeGuard },
   ],
   controllers: [AuthController],
   exports: [AuthService, JwtModule],

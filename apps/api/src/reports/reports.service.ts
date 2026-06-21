@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { ExpensesRepository } from '../expenses/expenses.repository';
 import { HgsRepository } from '../hgs/hgs.repository';
 import { MaintenanceRepository } from '../maintenance/maintenance.repository';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 
 @Injectable()
 export class ReportsService {
@@ -11,10 +13,13 @@ export class ReportsService {
     private expensesRepository: ExpensesRepository,
     private hgsRepository: HgsRepository,
     private maintenanceRepository: MaintenanceRepository,
+    private fleetScope: FleetScopeService,
   ) {}
 
-  async monthlySummary(year: number, month: number) {
-    const vehicles = await this.vehiclesRepository.findAllActive();
+  async monthlySummary(user: JwtPayload, year: number, month: number) {
+    const scope = this.fleetScope.resolve(user);
+    const fleetOwnerId = scope.fleetOwnerId;
+    const vehicles = await this.vehiclesRepository.findAllActive(fleetOwnerId);
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 1);
 
@@ -68,11 +73,11 @@ export class ReportsService {
     };
   }
 
-  async vehicleReport(vehicleId: string, year: number, month: number) {
-    const vehicles = await this.vehiclesRepository.findAllActive();
-    const vehicle = vehicles.find((v) => v.id === vehicleId);
+  async vehicleReport(user: JwtPayload, vehicleId: string, year: number, month: number) {
+    const scope = this.fleetScope.resolve(user);
+    const vehicle = await this.vehiclesRepository.findById(vehicleId, scope.fleetOwnerId);
 
-    if (!vehicle) return null;
+    if (!vehicle) throw new NotFoundException(`Vehicle ${vehicleId} not found`);
 
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 1);

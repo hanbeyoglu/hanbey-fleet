@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { VehiclesService } from './vehicles.service';
 import { VehiclesController } from './vehicles.controller';
 import { VehiclesRepository } from './vehicles.repository';
 import { TimelineModule } from '../timeline/timeline.module';
 
 @Module({
-  imports: [TimelineModule],
+  imports: [forwardRef(() => TimelineModule)],
   providers: [VehiclesService, VehiclesRepository],
   controllers: [VehiclesController],
   exports: [VehiclesService, VehiclesRepository],

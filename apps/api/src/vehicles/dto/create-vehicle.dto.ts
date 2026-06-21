@@ -1,6 +1,7 @@
-import { IsString, IsInt, IsEnum, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsInt, IsEnum, IsOptional, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VehicleStatus } from '@hanbey-fleet/shared';
+import { Type } from 'class-transformer';
 
 export class CreateVehicleDto {
   @ApiProperty({ example: '34 ABC 123' })
@@ -40,4 +41,17 @@ export class CreateVehicleDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional({ example: 5000, description: 'Daily vehicle fee (Araç Yevmiyesi)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  dailyFee?: number;
+
+  // BR-151: Vehicle belongs to exactly one Fleet Owner
+  @ApiPropertyOptional({ description: 'Fleet owner ID (BR-151). Required for fleet-scoped operations.' })
+  @IsString()
+  @IsOptional()
+  fleetOwnerId?: string;
 }

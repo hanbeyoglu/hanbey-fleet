@@ -18,12 +18,12 @@ const ACTIVE_SHIFT_INCLUDE = {
 export class VehiclesRepository {
   constructor(private prisma: PrismaService) {}
 
-  findMany(query: VehicleListQueryDto) {
+  findMany(query: VehicleListQueryDto, fleetOwnerId?: string | null) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy = query.sortBy ?? 'createdAt';
     const sortOrder = query.sortOrder ?? 'desc';
-    const where = this.buildWhereClause(query);
+    const where = this.buildWhereClause(query, fleetOwnerId);
 
     return Promise.all([
       this.prisma.vehicle.findMany({
@@ -36,23 +36,33 @@ export class VehiclesRepository {
     ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
-  findAllActive() {
+  findAllActive(fleetOwnerId?: string | null) {
     return this.prisma.vehicle.findMany({
-      where: { deletedAt: null },
-      select: { id: true, plate: true, brand: true, model: true, year: true, hgsTag: true },
+      where: {
+        deletedAt: null,
+        ...(fleetOwnerId ? { fleetOwnerId } : {}),
+      },
+      select: { id: true, plate: true, brand: true, model: true, year: true, hgsTag: true, fleetOwnerId: true },
     });
   }
 
-  findAllActivePlates() {
+  findAllActivePlates(fleetOwnerId?: string | null) {
     return this.prisma.vehicle.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        ...(fleetOwnerId ? { fleetOwnerId } : {}),
+      },
       select: { id: true, plate: true },
     });
   }
 
-  findById(id: string) {
+  findById(id: string, fleetOwnerId?: string | null) {
     return this.prisma.vehicle.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        id,
+        deletedAt: null,
+        ...(fleetOwnerId ? { fleetOwnerId } : {}),
+      },
       include: ACTIVE_SHIFT_INCLUDE,
     });
   }
@@ -63,10 +73,21 @@ export class VehiclesRepository {
     });
   }
 
-  findByIdForShift(id: string) {
+  findByIdForShift(id: string, fleetOwnerId?: string | null) {
     return this.prisma.vehicle.findFirst({
-      where: { id, deletedAt: null },
-      select: { id: true, plate: true, status: true, currentMileage: true, deletedAt: true },
+      where: {
+        id,
+        deletedAt: null,
+        ...(fleetOwnerId ? { fleetOwnerId } : {}),
+      },
+      select: {
+        id: true,
+        plate: true,
+        status: true,
+        currentMileage: true,
+        dailyFee: true,
+        deletedAt: true,
+      },
     });
   }
 
@@ -91,7 +112,7 @@ export class VehiclesRepository {
   }
 
   create(dto: CreateVehicleDto) {
-    return this.prisma.vehicle.create({ data: dto });
+    return (this.prisma.vehicle as any).create({ data: dto }) as ReturnType<typeof this.prisma.vehicle.create>;
   }
 
   update(id: string, dto: UpdateVehicleDto) {
@@ -105,8 +126,23 @@ export class VehiclesRepository {
     });
   }
 
-  private buildWhereClause(query: VehicleListQueryDto): Prisma.VehicleWhereInput {
+  findByFleetOwner(fleetOwnerId: string) {
+    return (this.prisma.vehicle as any).findMany({
+      where: { fleetOwnerId, deletedAt: null },
+      select: { id: true, plate: true, brand: true, model: true, year: true, status: true },
+      orderBy: { plate: 'asc' },
+    }) as Promise<{ id: string; plate: string; brand: string; model: string; year: number; status: string }[]>;
+  }
+
+  private buildWhereClause(
+    query: VehicleListQueryDto,
+    fleetOwnerId?: string | null,
+  ): Prisma.VehicleWhereInput {
     const where: Prisma.VehicleWhereInput = { deletedAt: null };
+
+    if (fleetOwnerId) {
+      where.fleetOwnerId = fleetOwnerId;
+    }
 
     if (query.status) {
       where.status = query.status;

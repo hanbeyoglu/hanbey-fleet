@@ -15,11 +15,22 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { ImportsPage } from './pages/ImportsPage';
 import { SchedulerPage } from './pages/SchedulerPage';
 import { DocumentsPage } from './pages/DocumentsPage';
+import { AssignmentsPage } from './pages/AssignmentsPage';
+import { FleetOwnersPage } from './pages/FleetOwnersPage';
+import { FleetSelectPage } from './pages/FleetSelectPage';
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/select-fleet"
+        element={
+          <ProtectedRoute>
+            <FleetSelectPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/*"
         element={
@@ -38,6 +49,8 @@ function AppRoutes() {
                 <Route path="/imports" element={<ImportsPage />} />
                 <Route path="/scheduler" element={<SchedulerPage />} />
                 <Route path="/documents" element={<DocumentsPage />} />
+                <Route path="/assignments" element={<AssignmentsPage />} />
+                <Route path="/fleet-owners" element={<FleetOwnersPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Layout>

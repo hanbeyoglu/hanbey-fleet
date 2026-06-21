@@ -18,7 +18,7 @@ export function SettlementsPage() {
   const [selected, setSelected] = useState<SettlementResponseDto | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
-  const canApprove = user?.role === Role.OWNER || user?.role === Role.ADMIN;
+  const canApprove = user?.role === Role.OWNER || user?.role === Role.MANAGER || user?.role === Role.SUPER_ADMIN;
 
   const loadSettlements = useCallback(() => {
     setLoading(true);

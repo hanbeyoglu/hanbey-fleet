@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DocumentType, OwnerType, Prisma } from '@prisma/client';
+import { DocumentType, MembershipStatus, OwnerType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildStatusDateFilter } from './utils/document-status.util';
 import { DocumentListQueryDto } from './dto/document-list-query.dto';
@@ -42,12 +42,12 @@ export class DocumentsRepository {
     return this.prisma.$transaction(fn);
   }
 
-  findMany(query: DocumentListQueryDto) {
+  async findMany(query: DocumentListQueryDto, fleetOwnerId?: string | null) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy = query.sortBy ?? DocumentSortField.CREATED_AT;
     const sortOrder = query.sortOrder ?? 'desc';
-    const where = this.buildWhereClause(query);
+    const where = await this.buildWhereClause(query, fleetOwnerId);
 
     return Promise.all([
       this.prisma.document.findMany({
@@ -61,20 +61,23 @@ export class DocumentsRepository {
     ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
-  findById(id: string, tx?: Prisma.TransactionClient) {
+  async findById(id: string, tx?: Prisma.TransactionClient, fleetOwnerId?: string | null) {
     const client = tx ?? this.prisma;
+    const fleetFilter = fleetOwnerId ? await this.buildFleetOwnerFilter(fleetOwnerId) : {};
     return client.document.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, ...fleetFilter },
       include: REVISIONS_INCLUDE,
     });
   }
 
-  findExpired(limit = 10) {
+  async findExpired(limit = 10, fleetOwnerId?: string | null) {
     const now = new Date();
+    const fleetFilter = fleetOwnerId ? await this.buildFleetOwnerFilter(fleetOwnerId) : {};
     return this.prisma.document.findMany({
       where: {
         deletedAt: null,
         expiryDate: { lt: now },
+        ...fleetFilter,
       },
       orderBy: { expiryDate: 'asc' },
       take: limit,
@@ -82,34 +85,37 @@ export class DocumentsRepository {
     });
   }
 
-  findExpiring(withinDays: number) {
+  async findExpiring(withinDays: number, fleetOwnerId?: string | null) {
     const now = new Date();
     const threshold = new Date(now);
     threshold.setDate(threshold.getDate() + withinDays);
+    const fleetFilter = fleetOwnerId ? await this.buildFleetOwnerFilter(fleetOwnerId) : {};
 
     return this.prisma.document.findMany({
       where: {
         deletedAt: null,
         expiryDate: { gte: now, lte: threshold },
+        ...fleetFilter,
       },
       include: REVISIONS_INCLUDE,
     });
   }
 
-  countByStatus(referenceDate = new Date()) {
+  async countByStatus(referenceDate = new Date(), fleetOwnerId?: string | null) {
+    const fleetFilter = fleetOwnerId ? await this.buildFleetOwnerFilter(fleetOwnerId) : {};
     const expiringFilter = buildStatusDateFilter(DocumentStatus.EXPIRING, referenceDate);
     const expiredFilter = buildStatusDateFilter(DocumentStatus.EXPIRED, referenceDate);
     const validFilter = buildStatusDateFilter(DocumentStatus.VALID, referenceDate);
 
     return Promise.all([
       this.prisma.document.count({
-        where: { deletedAt: null, ...expiredFilter },
+        where: { deletedAt: null, ...fleetFilter, ...expiredFilter },
       }),
       this.prisma.document.count({
-        where: { deletedAt: null, ...expiringFilter },
+        where: { deletedAt: null, ...fleetFilter, ...expiringFilter },
       }),
       this.prisma.document.count({
-        where: { deletedAt: null, ...validFilter },
+        where: { deletedAt: null, ...fleetFilter, ...validFilter },
       }),
     ]).then(([expired, expiring, valid]) => ({ expired, expiring, valid }));
   }
@@ -162,8 +168,42 @@ export class DocumentsRepository {
     });
   }
 
-  private buildWhereClause(query: DocumentListQueryDto): Prisma.DocumentWhereInput {
+  private async buildFleetOwnerFilter(fleetOwnerId: string): Promise<Prisma.DocumentWhereInput> {
+    const [vehicles, drivers] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where: { fleetOwnerId, deletedAt: null },
+        select: { id: true },
+      }),
+      this.prisma.driver.findMany({
+        where: {
+          deletedAt: null,
+          user: {
+            fleetMemberships: {
+              some: { fleetOwnerId, status: MembershipStatus.ACTIVE },
+            },
+          },
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    return {
+      OR: [
+        { ownerType: OwnerType.VEHICLE, ownerId: { in: vehicles.map((v) => v.id) } },
+        { ownerType: OwnerType.DRIVER, ownerId: { in: drivers.map((d) => d.id) } },
+      ],
+    };
+  }
+
+  private async buildWhereClause(
+    query: DocumentListQueryDto,
+    fleetOwnerId?: string | null,
+  ): Promise<Prisma.DocumentWhereInput> {
     const where: Prisma.DocumentWhereInput = { deletedAt: null };
+
+    if (fleetOwnerId) {
+      Object.assign(where, await this.buildFleetOwnerFilter(fleetOwnerId));
+    }
 
     if (query.ownerType) where.ownerType = query.ownerType;
     if (query.ownerId) where.ownerId = query.ownerId;

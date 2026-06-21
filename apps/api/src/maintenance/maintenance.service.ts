@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import {
   MaintenanceRepository,
   UpdateMaintenanceData,
@@ -11,6 +12,7 @@ import {
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { ExpensesRepository } from '../expenses/expenses.repository';
 import { TimelineService } from '../timeline/timeline.service';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 import { MaintenanceListQueryDto } from './dto/maintenance-list-query.dto';
@@ -25,12 +27,15 @@ export class MaintenanceService {
     private vehiclesRepo: VehiclesRepository,
     private expensesRepo: ExpensesRepository,
     private timeline: TimelineService,
+    private fleetScope: FleetScopeService,
   ) {}
 
   async findAll(
+    user: JwtPayload,
     query: MaintenanceListQueryDto,
   ): Promise<PaginatedResponse<MaintenanceResponseDto>> {
-    const { data, total, page, limit } = await this.repo.findMany(query);
+    const scope = this.fleetScope.resolve(user);
+    const { data, total, page, limit } = await this.repo.findMany(query, scope.fleetOwnerId);
 
     return MaintenanceMapper.toPaginatedResponse(data, {
       total,
@@ -40,21 +45,23 @@ export class MaintenanceService {
     });
   }
 
-  async findOne(id: string): Promise<MaintenanceResponseDto> {
-    const record = await this.repo.findById(id);
+  async findOne(user: JwtPayload, id: string): Promise<MaintenanceResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const record = await this.repo.findById(id, scope.fleetOwnerId);
     if (!record) throw new NotFoundException(`Maintenance record ${id} not found`);
     return MaintenanceMapper.toResponse(record);
   }
 
-  async create(dto: CreateMaintenanceDto): Promise<MaintenanceResponseDto> {
-    await this.assertVehicleExists(dto.vehicleId);
+  async create(user: JwtPayload, dto: CreateMaintenanceDto): Promise<MaintenanceResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    await this.assertVehicleExists(dto.vehicleId, scope.fleetOwnerId);
     this.assertCostPositive(dto.cost);
 
     const date = new Date(dto.date);
     this.assertValidDate(date, 'Maintenance date');
 
     if (dto.expenseId) {
-      await this.assertExpenseAvailable(dto.expenseId, dto.vehicleId);
+      await this.assertExpenseAvailable(dto.expenseId, dto.vehicleId, scope.fleetOwnerId);
     }
 
     const warrantyUntil = dto.warrantyUntil ? new Date(dto.warrantyUntil) : undefined;
@@ -94,8 +101,9 @@ export class MaintenanceService {
     return MaintenanceMapper.toResponse(record);
   }
 
-  async update(id: string, dto: UpdateMaintenanceDto): Promise<MaintenanceResponseDto> {
-    const existing = await this.repo.findById(id);
+  async update(user: JwtPayload, id: string, dto: UpdateMaintenanceDto): Promise<MaintenanceResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const existing = await this.repo.findById(id, scope.fleetOwnerId);
     if (!existing) throw new NotFoundException(`Maintenance record ${id} not found`);
 
     if (dto.cost !== undefined) {
@@ -103,7 +111,7 @@ export class MaintenanceService {
     }
 
     if (dto.expenseId !== undefined && dto.expenseId !== null) {
-      await this.assertExpenseAvailable(dto.expenseId, existing.vehicleId, id);
+      await this.assertExpenseAvailable(dto.expenseId, existing.vehicleId, scope.fleetOwnerId, id);
     }
 
     const updateData: UpdateMaintenanceData = {};
@@ -153,8 +161,9 @@ export class MaintenanceService {
     return response;
   }
 
-  async remove(id: string): Promise<MaintenanceResponseDto> {
-    const existing = await this.repo.findById(id);
+  async remove(user: JwtPayload, id: string): Promise<MaintenanceResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const existing = await this.repo.findById(id, scope.fleetOwnerId);
     if (!existing) throw new NotFoundException(`Maintenance record ${id} not found`);
 
     const record = await this.repo.softDelete(id);
@@ -175,8 +184,8 @@ export class MaintenanceService {
     return response;
   }
 
-  private async assertVehicleExists(vehicleId: string) {
-    const vehicle = await this.vehiclesRepo.findById(vehicleId);
+  private async assertVehicleExists(vehicleId: string, fleetOwnerId?: string | null) {
+    const vehicle = await this.vehiclesRepo.findById(vehicleId, fleetOwnerId);
     if (!vehicle) {
       throw new NotFoundException(`Vehicle ${vehicleId} not found`);
     }
@@ -185,9 +194,10 @@ export class MaintenanceService {
   private async assertExpenseAvailable(
     expenseId: string,
     vehicleId: string,
+    fleetOwnerId?: string | null,
     excludeMaintenanceId?: string,
   ) {
-    const expense = await this.expensesRepo.findById(expenseId);
+    const expense = await this.expensesRepo.findById(expenseId, fleetOwnerId);
     if (!expense) {
       throw new NotFoundException(`Expense ${expenseId} not found`);
     }

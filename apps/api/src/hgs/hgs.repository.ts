@@ -28,12 +28,12 @@ export class HgsRepository {
     return this.prisma.$transaction(fn);
   }
 
-  findMany(query: HgsListQueryDto) {
+  findMany(query: HgsListQueryDto, fleetOwnerId?: string | null) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const sortBy = query.sortBy ?? 'transitTime';
     const sortOrder = query.sortOrder ?? 'desc';
-    const where = this.buildWhereClause(query);
+    const where = this.buildWhereClause(query, fleetOwnerId);
 
     return Promise.all([
       this.prisma.hgsTransit.findMany({
@@ -47,9 +47,12 @@ export class HgsRepository {
     ]).then(([data, total]) => ({ data, total, page, limit }));
   }
 
-  findById(id: string) {
-    return this.prisma.hgsTransit.findUnique({
-      where: { id },
+  findById(id: string, fleetOwnerId?: string | null) {
+    return this.prisma.hgsTransit.findFirst({
+      where: {
+        id,
+        ...(fleetOwnerId && { vehicle: { fleetOwnerId, deletedAt: null } }),
+      },
       include: HGS_INCLUDE,
     });
   }
@@ -96,8 +99,15 @@ export class HgsRepository {
     });
   }
 
-  private buildWhereClause(query: HgsListQueryDto): Prisma.HgsTransitWhereInput {
+  private buildWhereClause(
+    query: HgsListQueryDto,
+    fleetOwnerId?: string | null,
+  ): Prisma.HgsTransitWhereInput {
     const where: Prisma.HgsTransitWhereInput = {};
+
+    if (fleetOwnerId) {
+      where.vehicle = { fleetOwnerId, deletedAt: null };
+    }
 
     if (query.vehicleId) {
       where.vehicleId = query.vehicleId;

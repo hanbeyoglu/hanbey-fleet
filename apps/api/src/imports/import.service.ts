@@ -4,11 +4,13 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import { ImportRepository } from './import.repository';
 import { ParserService } from './parser.service';
 import { ShiftsRepository } from '../shifts/shifts.repository';
 import { DriverReportsRepository } from '../driver-reports/driver-reports.repository';
 import { TimelineRepository } from '../timeline/timeline.repository';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import { CreateImportDto } from './dto/create-import.dto';
 import { OcrImportDto, WhatsAppImportDto } from './dto/source-import.dto';
 import { ImportListQueryDto } from './dto/import-list-query.dto';
@@ -32,27 +34,29 @@ export class ImportService {
     private shiftsRepo: ShiftsRepository,
     private driverReportsRepo: DriverReportsRepository,
     private timelineRepo: TimelineRepository,
+    private fleetScope: FleetScopeService,
   ) {}
 
-  importManual(dto: CreateImportDto): Promise<ImportResponseDto> {
-    return this.processImport(ImportSource.MANUAL, dto.rawContent.trim());
+  importManual(user: JwtPayload, dto: CreateImportDto): Promise<ImportResponseDto> {
+    return this.processImport(user, ImportSource.MANUAL, dto.rawContent.trim());
   }
 
-  importOcr(dto: OcrImportDto): Promise<ImportResponseDto> {
-    return this.processImport(ImportSource.OCR, dto.text.trim());
+  importOcr(user: JwtPayload, dto: OcrImportDto): Promise<ImportResponseDto> {
+    return this.processImport(user, ImportSource.OCR, dto.text.trim());
   }
 
-  importWhatsApp(dto: WhatsAppImportDto): Promise<ImportResponseDto> {
+  importWhatsApp(user: JwtPayload, dto: WhatsAppImportDto): Promise<ImportResponseDto> {
     const rawContent = JSON.stringify({
       message: dto.message.trim(),
       sender: dto.sender ?? null,
       receivedAt: dto.receivedAt ?? new Date().toISOString(),
     });
-    return this.processImport(ImportSource.WHATSAPP, rawContent);
+    return this.processImport(user, ImportSource.WHATSAPP, rawContent);
   }
 
-  async findAll(query: ImportListQueryDto): Promise<PaginatedResponse<ImportResponseDto>> {
-    const { data, total, page, limit } = await this.repo.findMany(query);
+  async findAll(user: JwtPayload, query: ImportListQueryDto): Promise<PaginatedResponse<ImportResponseDto>> {
+    const scope = this.fleetScope.resolve(user);
+    const { data, total, page, limit } = await this.repo.findMany(query, scope.fleetOwnerId);
 
     return ImportMapper.toPaginatedResponse(data, {
       total,
@@ -62,8 +66,9 @@ export class ImportService {
     });
   }
 
-  async findOne(id: string): Promise<ImportResponseDto> {
-    const job = await this.repo.findById(id);
+  async findOne(user: JwtPayload, id: string): Promise<ImportResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const job = await this.repo.findById(id, scope.fleetOwnerId);
     if (!job) throw new NotFoundException(`Import job ${id} not found`);
     return ImportMapper.toResponse(job);
   }
@@ -76,9 +81,11 @@ export class ImportService {
   }
 
   private async processImport(
+    user: JwtPayload,
     source: ImportSource,
     rawContent: string,
   ): Promise<ImportResponseDto> {
+    const scope = this.fleetScope.resolve(user);
     const job = await this.repo.create({
       source,
       status: ImportStatus.PROCESSING,
@@ -103,7 +110,7 @@ export class ImportService {
     const { shiftId, declaredRevenue, declaredHgs, declaredTotal, notes } =
       parseResult.data;
 
-    const shift = await this.shiftsRepo.findCompletedById(shiftId!);
+    const shift = await this.shiftsRepo.findCompletedById(shiftId!, scope.fleetOwnerId);
     if (!shift) {
       const failed = await this.repo.update(job.id, {
         status: ImportStatus.FAILED,

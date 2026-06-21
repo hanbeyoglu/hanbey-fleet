@@ -17,6 +17,7 @@ export interface VehicleResponseDto {
   color?: string | null;
   status: VehicleStatus;
   currentMileage: number;
+  dailyFee: number;
   hgsTag?: string | null;
   notes?: string | null;
   createdAt: string;
@@ -266,6 +267,23 @@ export interface DashboardChartDto {
   hgs: DashboardChartPointDto[];
 }
 
+export interface VehicleAssignmentResponseDto {
+  id: string;
+  vehicleId: string;
+  driverId: string;
+  assignedById: string;
+  assignedAt: string;
+  releasedAt?: string | null;
+  releaseReason?: string | null;
+  notes?: string | null;
+  status: 'ACTIVE' | 'RELEASED';
+  createdAt: string;
+  updatedAt: string;
+  vehicle?: { id: string; plate: string; brand: string; model: string };
+  driver?: { id: string; name: string; username: string };
+  assignedBy?: { id: string; name: string; username: string };
+}
+
 export interface DashboardOverviewDto {
   date: string;
   financialSummary: {
@@ -286,6 +304,12 @@ export interface DashboardOverviewDto {
   fleet: {
     activeVehicles: number;
     activeDrivers: number;
+  };
+  assignments: {
+    assignedVehicles: number;
+    unassignedVehicles: number;
+    assignedDrivers: number;
+    availableDrivers: number;
   };
   timeline: {
     events: Array<{

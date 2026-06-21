@@ -540,6 +540,131 @@ Document lifecycle generates timeline events: DOCUMENT_UPLOADED, DOCUMENT_REPLAC
 
 ⸻
 
+Vehicle Assignment Rules
+
+BR-120
+
+A vehicle can have only one active assignment at any given time.
+
+⸻
+
+BR-121
+
+A driver can have only one active assignment at any given time.
+
+⸻
+
+BR-122
+
+Assignment creation does NOT start a Shift.
+
+Shift and Assignment are independent concepts.
+
+⸻
+
+BR-123
+
+Assignment release does NOT finish a Shift.
+
+⸻
+
+BR-124
+
+Assignment history is immutable.
+
+Assignments are never deleted or soft-deleted.
+
+They can only be released (releasedAt is set).
+
+⸻
+
+BR-125
+
+Assigning a vehicle that already has an active assignment returns Conflict (409).
+
+Assigning to a driver that already has an active assignment returns Conflict (409).
+
+⸻
+
+BR-126
+
+Vehicle assignment automatically generates the VEHICLE_ASSIGNED timeline event.
+
+⸻
+
+BR-127
+
+Vehicle release automatically generates the VEHICLE_RELEASED timeline event.
+
+⸻
+
+BR-128
+
+Dashboard must expose:
+
+- Assigned Vehicles: count of vehicles with an active assignment
+- Unassigned Vehicles: count of vehicles without an active assignment
+- Assigned Drivers: count of drivers with an active assignment
+- Available Drivers: count of drivers without an active assignment
+
+⸻
+
+Fleet Isolation Rules
+
+BR-160
+
+Every fleet-scoped aggregate must be filtered by fleetOwnerId.
+
+⸻
+
+BR-161
+
+OWNER cannot see another FleetOwner's vehicles.
+
+⸻
+
+BR-162
+
+OWNER cannot see another FleetOwner's drivers.
+
+⸻
+
+BR-163
+
+OWNER cannot see another FleetOwner's assignments.
+
+⸻
+
+BR-164
+
+OWNER cannot see another FleetOwner's shifts, reports, expenses, HGS, maintenance, documents, settlements, timeline or dashboard data.
+
+⸻
+
+BR-165
+
+SUPER_ADMIN can access all fleet data and may optionally filter by fleetOwnerId.
+
+⸻
+
+BR-166
+
+If a non-SUPER_ADMIN request has no fleetOwnerId in JWT, reject with 403.
+
+⸻
+
+BR-167
+
+Driver Portal must require selected fleet context if driver belongs to multiple fleets.
+
+⸻
+
+BR-168
+
+Cross-fleet access must return 403 or 404; never leak data existence.
+
+⸻
+
 Future Rules
 
 Additional business rules may be introduced without changing existing rules.

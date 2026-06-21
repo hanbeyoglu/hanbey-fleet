@@ -4,8 +4,10 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import { VehiclesRepository } from './vehicles.repository';
 import { TimelineService } from '../timeline/timeline.service';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleListQueryDto } from './dto/vehicle-list-query.dto';
@@ -19,10 +21,15 @@ export class VehiclesService {
   constructor(
     private repo: VehiclesRepository,
     private timeline: TimelineService,
+    private fleetScope: FleetScopeService,
   ) {}
 
-  async findAll(query: VehicleListQueryDto): Promise<PaginatedResponse<VehicleResponseDto>> {
-    const { data, total, page, limit } = await this.repo.findMany(query);
+  async findAll(
+    user: JwtPayload,
+    query: VehicleListQueryDto,
+  ): Promise<PaginatedResponse<VehicleResponseDto>> {
+    const scope = this.fleetScope.resolve(user);
+    const { data, total, page, limit } = await this.repo.findMany(query, scope.fleetOwnerId);
 
     return VehicleMapper.toPaginatedResponse(data, {
       total,
@@ -32,18 +39,25 @@ export class VehiclesService {
     });
   }
 
-  async findOne(id: string): Promise<VehicleDetailResponseDto> {
-    const vehicle = await this.repo.findById(id);
+  async findOne(user: JwtPayload, id: string): Promise<VehicleDetailResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const vehicle = await this.repo.findById(id, scope.fleetOwnerId);
     if (!vehicle) throw new NotFoundException(`Vehicle ${id} not found`);
     return VehicleMapper.toDetailResponse(vehicle);
   }
 
-  async create(dto: CreateVehicleDto): Promise<VehicleResponseDto> {
+  async create(user: JwtPayload, dto: CreateVehicleDto): Promise<VehicleResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const fleetOwnerId = scope.isGlobal ? dto.fleetOwnerId : scope.fleetOwnerId!;
+    if (!fleetOwnerId) {
+      throw new BadRequestException('fleetOwnerId is required');
+    }
+
     const plate = normalizePlate(dto.plate);
     const existing = await this.repo.findActiveByPlate(plate);
     if (existing) throw new ConflictException(`Plate ${plate} already exists`);
 
-    const vehicle = await this.repo.create({ ...dto, plate });
+    const vehicle = await this.repo.create({ ...dto, plate, fleetOwnerId });
 
     await this.timeline.create({
       vehicleId: vehicle.id,
@@ -55,8 +69,9 @@ export class VehiclesService {
     return VehicleMapper.toResponse(vehicle);
   }
 
-  async update(id: string, dto: UpdateVehicleDto): Promise<VehicleResponseDto> {
-    const existing = await this.repo.findById(id);
+  async update(user: JwtPayload, id: string, dto: UpdateVehicleDto): Promise<VehicleResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const existing = await this.repo.findById(id, scope.fleetOwnerId);
     if (!existing) throw new NotFoundException(`Vehicle ${id} not found`);
 
     const updateData = { ...dto };
@@ -92,8 +107,9 @@ export class VehiclesService {
     return VehicleMapper.toResponse(vehicle);
   }
 
-  async remove(id: string): Promise<VehicleResponseDto> {
-    const existing = await this.repo.findById(id);
+  async remove(user: JwtPayload, id: string): Promise<VehicleResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const existing = await this.repo.findById(id, scope.fleetOwnerId);
     if (!existing) throw new NotFoundException(`Vehicle ${id} not found`);
 
     const hasActiveShift = await this.repo.hasActiveShift(id);

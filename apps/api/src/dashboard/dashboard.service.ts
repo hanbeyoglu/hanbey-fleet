@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { SettlementStatus } from '@hanbey-fleet/shared';
+import { JwtPayload, SettlementStatus } from '@hanbey-fleet/shared';
 import { DashboardRepository, DateRange } from './dashboard.repository';
 import { TimelineService } from '../timeline/timeline.service';
 import { DocumentsService } from '../documents/documents.service';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import { DashboardOverviewDto } from './dto/dashboard-overview.dto';
 import { DashboardChartDto, DashboardChartPointDto } from './dto/dashboard-chart.dto';
 import { DashboardMapper } from './mappers/dashboard.mapper';
@@ -16,9 +17,12 @@ export class DashboardService {
     private repo: DashboardRepository,
     private timeline: TimelineService,
     private documents: DocumentsService,
+    private fleetScope: FleetScopeService,
   ) {}
 
-  async getOverview(): Promise<DashboardOverviewDto> {
+  async getOverview(user: JwtPayload): Promise<DashboardOverviewDto> {
+    const scope = this.fleetScope.resolve(user);
+    const fleetOwnerId = scope.fleetOwnerId;
     const todayRange = this.getTodayRange();
     const dateKey = DashboardMapper.formatDateKey(todayRange.start);
 
@@ -34,18 +38,24 @@ export class DashboardService {
       timelineEvents,
       complianceCounts,
       expiredDocuments,
+      assignedVehicles,
+      totalVehicles,
+      totalDrivers,
     ] = await Promise.all([
-      this.repo.sumSettlementNetRevenue(todayRange),
-      this.repo.sumExpenses(todayRange),
-      this.repo.sumHgs(todayRange),
-      this.repo.countActiveVehicles(),
-      this.repo.countActiveDrivers(),
-      this.repo.countCompletedShifts(todayRange),
-      this.repo.countMaintenance(todayRange),
-      this.repo.settlementCountsByStatus(),
-      this.timeline.findRecent(TIMELINE_LIMIT),
-      this.documents.getComplianceCounts(),
-      this.documents.getExpiredForDashboard(10),
+      this.repo.sumSettlementNetRevenue(todayRange, fleetOwnerId),
+      this.repo.sumExpenses(todayRange, fleetOwnerId),
+      this.repo.sumHgs(todayRange, fleetOwnerId),
+      this.repo.countActiveVehicles(fleetOwnerId),
+      this.repo.countActiveDrivers(fleetOwnerId),
+      this.repo.countCompletedShifts(todayRange, fleetOwnerId),
+      this.repo.countMaintenance(todayRange, fleetOwnerId),
+      this.repo.settlementCountsByStatus(fleetOwnerId),
+      this.timeline.findRecent(TIMELINE_LIMIT, user),
+      this.documents.getComplianceCounts(fleetOwnerId),
+      this.documents.getExpiredForDashboard(10, fleetOwnerId),
+      this.repo.countAssignedVehicles(fleetOwnerId),
+      this.repo.countTotalActiveVehicles(fleetOwnerId),
+      this.repo.countTotalDrivers(fleetOwnerId),
     ]);
 
     const revenue = DashboardMapper.toNumber(revenueResult._sum.netRevenue);
@@ -64,6 +74,12 @@ export class DashboardService {
       },
       settlements: this.buildSettlementSummary(settlementGroups),
       fleet: { activeVehicles, activeDrivers },
+      assignments: {
+        assignedVehicles,
+        unassignedVehicles: totalVehicles - assignedVehicles,
+        assignedDrivers: assignedVehicles,
+        availableDrivers: totalDrivers - assignedVehicles,
+      },
       timelineEvents,
       compliance: {
         expiredCount: complianceCounts.expired,
@@ -73,13 +89,15 @@ export class DashboardService {
     });
   }
 
-  async getCharts(): Promise<DashboardChartDto> {
+  async getCharts(user: JwtPayload): Promise<DashboardChartDto> {
+    const scope = this.fleetScope.resolve(user);
+    const fleetOwnerId = scope.fleetOwnerId;
     const range = this.getChartRange();
 
     const [revenueRows, expenseRows, hgsRows] = await Promise.all([
-      this.repo.revenueByDay(range),
-      this.repo.expensesByDay(range),
-      this.repo.hgsByDay(range),
+      this.repo.revenueByDay(range, fleetOwnerId),
+      this.repo.expensesByDay(range, fleetOwnerId),
+      this.repo.hgsByDay(range, fleetOwnerId),
     ]);
 
     const dayKeys = this.buildDayKeys(range.start, CHART_DAYS);

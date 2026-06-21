@@ -20,6 +20,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ImportsModule } from './imports/imports.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { DocumentsModule } from './documents/documents.module';
+import { VehicleAssignmentsModule } from './vehicle-assignments/vehicle-assignments.module';
+import { DriverPortalModule } from './driver-portal/driver-portal.module';
+import { FleetOwnersModule } from './fleet-owners/fleet-owners.module';
+import { FleetModule } from './common/fleet/fleet.module';
 
 @Module({
   imports: [
@@ -36,6 +40,7 @@ import { DocumentsModule } from './documents/documents.module';
       }),
     }),
     PrismaModule,
+    FleetModule,
     AuthModule,
     UsersModule,
     VehiclesModule,
@@ -53,6 +58,9 @@ import { DocumentsModule } from './documents/documents.module';
     ImportsModule,
     SchedulerModule,
     DocumentsModule,
+    VehicleAssignmentsModule,
+    DriverPortalModule,
+    FleetOwnersModule,
   ],
 })
 export class AppModule {}

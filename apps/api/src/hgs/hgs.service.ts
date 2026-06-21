@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import { HgsRepository } from './hgs.repository';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { ShiftsRepository } from '../shifts/shifts.repository';
 import { TimelineService } from '../timeline/timeline.service';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import { SyncHgsDto } from './dto/sync-hgs.dto';
 import { HgsListQueryDto } from './dto/hgs-list-query.dto';
 import { HgsTransitResponseDto } from './dto/hgs-transit-response.dto';
@@ -31,10 +33,12 @@ export class HgsService {
     private vehiclesRepo: VehiclesRepository,
     private shiftsRepo: ShiftsRepository,
     private timeline: TimelineService,
+    private fleetScope: FleetScopeService,
   ) {}
 
-  async findAll(query: HgsListQueryDto): Promise<PaginatedResponse<HgsTransitResponseDto>> {
-    const { data, total, page, limit } = await this.repo.findMany(query);
+  async findAll(user: JwtPayload, query: HgsListQueryDto): Promise<PaginatedResponse<HgsTransitResponseDto>> {
+    const scope = this.fleetScope.resolve(user);
+    const { data, total, page, limit } = await this.repo.findMany(query, scope.fleetOwnerId);
 
     return HgsMapper.toPaginatedResponse(data, {
       total,
@@ -44,13 +48,19 @@ export class HgsService {
     });
   }
 
-  async findOne(id: string): Promise<HgsTransitResponseDto> {
-    const transit = await this.repo.findById(id);
+  async findOne(user: JwtPayload, id: string): Promise<HgsTransitResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const transit = await this.repo.findById(id, scope.fleetOwnerId);
     if (!transit) throw new NotFoundException(`HGS transit ${id} not found`);
     return HgsMapper.toResponse(transit);
   }
 
-  async sync(records: SyncHgsDto[]): Promise<SyncResultDto> {
+  async sync(user: JwtPayload, records: SyncHgsDto[]): Promise<SyncResultDto> {
+    const scope = this.fleetScope.resolve(user);
+    return this.syncRecords(records, scope.fleetOwnerId);
+  }
+
+  async syncRecords(records: SyncHgsDto[], fleetOwnerId?: string | null): Promise<SyncResultDto> {
     const result: SyncResultDto = {
       imported: 0,
       skipped: 0,
@@ -64,7 +74,7 @@ export class HgsService {
       return result;
     }
 
-    const vehiclePlateMap = await this.buildVehiclePlateMap();
+    const vehiclePlateMap = await this.buildVehiclePlateMap(fleetOwnerId);
     const seenReferenceNos = new Set<string>();
 
     const validReferenceNos = records
@@ -187,8 +197,8 @@ export class HgsService {
     }
   }
 
-  private async buildVehiclePlateMap() {
-    const vehicles = await this.vehiclesRepo.findAllActivePlates();
+  private async buildVehiclePlateMap(fleetOwnerId?: string | null) {
+    const vehicles = await this.vehiclesRepo.findAllActivePlates(fleetOwnerId);
     const map = new Map<string, { id: string; plate: string }>();
 
     for (const vehicle of vehicles) {

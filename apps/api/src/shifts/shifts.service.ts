@@ -5,10 +5,12 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { ShiftStatus } from '@prisma/client';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import { ShiftsRepository } from './shifts.repository';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { DriversRepository } from '../drivers/drivers.repository';
 import { TimelineRepository } from '../timeline/timeline.repository';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import { StartShiftDto } from './dto/start-shift.dto';
 import { EndShiftDto } from './dto/end-shift.dto';
 import { CancelShiftDto } from './dto/cancel-shift.dto';
@@ -26,10 +28,14 @@ export class ShiftsService {
     private vehiclesRepo: VehiclesRepository,
     private driversRepo: DriversRepository,
     private timelineRepo: TimelineRepository,
+    private fleetScope: FleetScopeService,
   ) {}
 
-  async startShift(dto: StartShiftDto): Promise<ShiftResponseDto> {
-    const vehicle = await this.vehiclesRepo.findByIdForShift(dto.vehicleId);
+  async startShift(user: JwtPayload, dto: StartShiftDto): Promise<ShiftResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const fleetOwnerId = scope.fleetOwnerId;
+
+    const vehicle = await this.vehiclesRepo.findByIdForShift(dto.vehicleId, fleetOwnerId);
     if (!vehicle) throw new NotFoundException(`Vehicle ${dto.vehicleId} not found`);
 
     if (vehicle.status !== VehicleStatus.IDLE) {
@@ -38,7 +44,7 @@ export class ShiftsService {
       );
     }
 
-    const driver = await this.driversRepo.findByIdForShift(dto.driverId);
+    const driver = await this.driversRepo.findByIdForShift(dto.driverId, fleetOwnerId);
     if (!driver) throw new NotFoundException(`Driver ${dto.driverId} not found`);
     if (!driver.user.isActive) {
       throw new BadRequestException('Driver account is not active');
@@ -104,8 +110,9 @@ export class ShiftsService {
     return ShiftMapper.toResponse(shift);
   }
 
-  async endShift(id: string, dto: EndShiftDto): Promise<ShiftResponseDto> {
-    const shift = await this.shiftsRepo.findById(id);
+  async endShift(user: JwtPayload, id: string, dto: EndShiftDto): Promise<ShiftResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const shift = await this.shiftsRepo.findById(id, scope.fleetOwnerId);
     if (!shift) throw new NotFoundException(`Shift ${id} not found`);
 
     this.assertTransition(shift.status, [ShiftStatus.ACTIVE], 'end');
@@ -158,8 +165,9 @@ export class ShiftsService {
     return ShiftMapper.toResponse(updated);
   }
 
-  async cancelShift(id: string, dto: CancelShiftDto): Promise<ShiftResponseDto> {
-    const shift = await this.shiftsRepo.findById(id);
+  async cancelShift(user: JwtPayload, id: string, dto: CancelShiftDto): Promise<ShiftResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const shift = await this.shiftsRepo.findById(id, scope.fleetOwnerId);
     if (!shift) throw new NotFoundException(`Shift ${id} not found`);
 
     this.assertTransition(shift.status, [ShiftStatus.ACTIVE], 'cancel');
@@ -201,13 +209,15 @@ export class ShiftsService {
     return ShiftMapper.toResponse(updated);
   }
 
-  async getCurrent(query: ShiftCurrentQueryDto): Promise<ShiftResponseDto[]> {
-    const shifts = await this.shiftsRepo.findCurrent(query);
+  async getCurrent(user: JwtPayload, query: ShiftCurrentQueryDto): Promise<ShiftResponseDto[]> {
+    const scope = this.fleetScope.resolve(user);
+    const shifts = await this.shiftsRepo.findCurrent(query, scope.fleetOwnerId);
     return shifts.map(ShiftMapper.toResponse);
   }
 
-  async getHistory(query: ShiftHistoryQueryDto): Promise<PaginatedResponse<ShiftResponseDto>> {
-    const { data, total, page, limit } = await this.shiftsRepo.findHistory(query);
+  async getHistory(user: JwtPayload, query: ShiftHistoryQueryDto): Promise<PaginatedResponse<ShiftResponseDto>> {
+    const scope = this.fleetScope.resolve(user);
+    const { data, total, page, limit } = await this.shiftsRepo.findHistory(query, scope.fleetOwnerId);
 
     return ShiftMapper.toPaginatedResponse(data, {
       total,

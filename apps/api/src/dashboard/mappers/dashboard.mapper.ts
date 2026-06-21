@@ -3,6 +3,7 @@ import {
   DashboardOverviewDto,
   FinancialSummaryDto,
   FleetStatusDto,
+  AssignmentSummaryDto,
   TimelineEventSummaryDto,
   TimelineSummaryDto,
   TodayStatisticsDto,
@@ -23,6 +24,7 @@ export class DashboardMapper {
     today: TodayStatisticsDto;
     settlements: FinancialSummaryDto['settlements'];
     fleet: FleetStatusDto;
+    assignments: AssignmentSummaryDto;
     timelineEvents: TimelineWithVehicle[];
     compliance: ComplianceSummaryDto;
   }): DashboardOverviewDto {
@@ -33,6 +35,7 @@ export class DashboardMapper {
         settlements: params.settlements,
       },
       fleet: params.fleet,
+      assignments: params.assignments,
       timeline: DashboardMapper.toTimelineSummary(params.timelineEvents),
       compliance: params.compliance,
     };

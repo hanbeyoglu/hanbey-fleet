@@ -3,11 +3,13 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { JwtPayload } from '@hanbey-fleet/shared';
 import { DocumentsRepository } from './documents.repository';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { DriversRepository } from '../drivers/drivers.repository';
 import { TimelineService } from '../timeline/timeline.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FleetScopeService } from '../common/fleet/fleet-scope.service';
 import {
   CreateDocumentDto,
   CreateDocumentRevisionDto,
@@ -39,11 +41,16 @@ export class DocumentsService {
     private driversRepo: DriversRepository,
     private timeline: TimelineService,
     private notifications: NotificationsService,
+    private fleetScope: FleetScopeService,
   ) {}
 
-  async findAll(query: DocumentListQueryDto): Promise<PaginatedResponse<DocumentResponseDto>> {
-    const { data, total, page, limit } = await this.repo.findMany(query);
-    const enriched = await this.enrichOwnerLabels(data);
+  async findAll(
+    user: JwtPayload,
+    query: DocumentListQueryDto,
+  ): Promise<PaginatedResponse<DocumentResponseDto>> {
+    const scope = this.fleetScope.resolve(user);
+    const { data, total, page, limit } = await this.repo.findMany(query, scope.fleetOwnerId);
+    const enriched = await this.enrichOwnerLabels(data, scope.fleetOwnerId);
 
     return DocumentMapper.toPaginatedResponse(enriched, {
       total,
@@ -53,16 +60,18 @@ export class DocumentsService {
     });
   }
 
-  async findOne(id: string): Promise<DocumentResponseDto> {
-    const document = await this.repo.findById(id);
+  async findOne(user: JwtPayload, id: string): Promise<DocumentResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const document = await this.repo.findById(id, undefined, scope.fleetOwnerId);
     if (!document) throw new NotFoundException(`Document ${id} not found`);
 
-    const [enriched] = await this.enrichOwnerLabels([document]);
+    const [enriched] = await this.enrichOwnerLabels([document], scope.fleetOwnerId);
     return DocumentMapper.toResponse(enriched);
   }
 
-  async create(dto: CreateDocumentDto): Promise<DocumentResponseDto> {
-    await this.assertOwnerExists(dto.ownerType, dto.ownerId);
+  async create(user: JwtPayload, dto: CreateDocumentDto): Promise<DocumentResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    await this.assertOwnerExists(dto.ownerType, dto.ownerId, scope.fleetOwnerId);
     this.assertDocumentType(dto.ownerType, dto.type);
 
     const issueDate = dto.issueDate ? this.parseDate(dto.issueDate, 'issueDate') : undefined;
@@ -97,10 +106,10 @@ export class DocumentsService {
       return document.id;
     });
 
-    const created = await this.repo.findById(documentId);
+    const created = await this.repo.findById(documentId, undefined, scope.fleetOwnerId);
     if (!created) throw new NotFoundException('Document could not be loaded after creation');
 
-    const [enriched] = await this.enrichOwnerLabels([created!]);
+    const [enriched] = await this.enrichOwnerLabels([created!], scope.fleetOwnerId);
     const response = DocumentMapper.toResponse(enriched);
 
     await this.createTimelineEvent(
@@ -109,13 +118,14 @@ export class DocumentsService {
       `Document uploaded: ${enriched.title}`,
       { documentId: enriched.id, version: 1 },
     );
-    await this.notifyIfExpiring(enriched);
+    await this.notifyIfExpiring(enriched, scope.fleetOwnerId);
 
     return response;
   }
 
-  async update(id: string, dto: UpdateDocumentDto): Promise<DocumentResponseDto> {
-    const existing = await this.repo.findById(id);
+  async update(user: JwtPayload, id: string, dto: UpdateDocumentDto): Promise<DocumentResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const existing = await this.repo.findById(id, undefined, scope.fleetOwnerId);
     if (!existing) throw new NotFoundException(`Document ${id} not found`);
 
     if (dto.type) {
@@ -146,17 +156,19 @@ export class DocumentsService {
       ...(expiryDate !== undefined && { expiryDate }),
     });
 
-    const [enriched] = await this.enrichOwnerLabels([updated]);
-    await this.notifyIfExpiring(enriched as typeof updated);
+    const [enriched] = await this.enrichOwnerLabels([updated], scope.fleetOwnerId);
+    await this.notifyIfExpiring(enriched as typeof updated, scope.fleetOwnerId);
 
     return DocumentMapper.toResponse(enriched as typeof updated);
   }
 
   async createNewVersion(
+    user: JwtPayload,
     id: string,
     dto: CreateDocumentRevisionDto,
   ): Promise<DocumentResponseDto> {
-    const existing = await this.repo.findById(id);
+    const scope = this.fleetScope.resolve(user);
+    const existing = await this.repo.findById(id, undefined, scope.fleetOwnerId);
     if (!existing) throw new NotFoundException(`Document ${id} not found`);
 
     await this.repo.runInTransaction(async (tx) => {
@@ -176,10 +188,10 @@ export class DocumentsService {
       );
     });
 
-    const updated = await this.repo.findById(id);
+    const updated = await this.repo.findById(id, undefined, scope.fleetOwnerId);
     if (!updated) throw new NotFoundException(`Document ${id} not found`);
 
-    const [enriched] = await this.enrichOwnerLabels([updated]);
+    const [enriched] = await this.enrichOwnerLabels([updated], scope.fleetOwnerId);
     const latestVersion = enriched.revisions[0]?.version ?? 1;
 
     await this.createTimelineEvent(
@@ -192,12 +204,13 @@ export class DocumentsService {
     return DocumentMapper.toResponse(enriched);
   }
 
-  async softDelete(id: string): Promise<DocumentResponseDto> {
-    const existing = await this.repo.findById(id);
+  async softDelete(user: JwtPayload, id: string): Promise<DocumentResponseDto> {
+    const scope = this.fleetScope.resolve(user);
+    const existing = await this.repo.findById(id, undefined, scope.fleetOwnerId);
     if (!existing) throw new NotFoundException(`Document ${id} not found`);
 
     const deleted = await this.repo.softDelete(id);
-    const [enriched] = await this.enrichOwnerLabels([deleted]);
+    const [enriched] = await this.enrichOwnerLabels([deleted], scope.fleetOwnerId);
 
     await this.createTimelineEvent(
       enriched,
@@ -209,16 +222,16 @@ export class DocumentsService {
     return DocumentMapper.toResponse(enriched);
   }
 
-  async getExpiredForDashboard(limit = 10): Promise<ExpiredDocumentSummaryDto[]> {
-    const documents = await this.repo.findExpired(limit);
-    const enriched = await this.enrichOwnerLabels(documents);
+  async getExpiredForDashboard(limit = 10, fleetOwnerId?: string | null): Promise<ExpiredDocumentSummaryDto[]> {
+    const documents = await this.repo.findExpired(limit, fleetOwnerId);
+    const enriched = await this.enrichOwnerLabels(documents, fleetOwnerId);
     return enriched
       .filter((doc) => doc.expiryDate)
       .map(DocumentMapper.toExpiredSummary);
   }
 
-  async getComplianceCounts(): Promise<{ expired: number; expiring: number }> {
-    const counts = await this.repo.countByStatus();
+  async getComplianceCounts(fleetOwnerId?: string | null): Promise<{ expired: number; expiring: number }> {
+    const counts = await this.repo.countByStatus(new Date(), fleetOwnerId);
     return { expired: counts.expired, expiring: counts.expiring };
   }
 
@@ -241,16 +254,18 @@ export class DocumentsService {
     document: Awaited<ReturnType<DocumentsRepository['findById']>> & {
       ownerLabel?: string | null;
     },
+    fleetOwnerId?: string | null,
   ): Promise<void> {
     if (!document?.expiryDate) return;
     if (computeDocumentStatus(document.expiryDate) !== DocumentStatus.EXPIRING) return;
+    if (!fleetOwnerId) return;
 
     const ownerLabel = document.ownerLabel ?? document.ownerId;
     const daysLeft = Math.ceil(
       (document.expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
     );
 
-    await this.notifications.notifyFleetManagers({
+    await this.notifications.notifyFleetManagers(fleetOwnerId, {
       type: NotificationType.DOCUMENT_EXPIRING,
       title: 'Document expiring soon',
       message: `${document.title} for ${ownerLabel} expires in ${daysLeft} day(s).`,
@@ -305,14 +320,18 @@ export class DocumentsService {
     return shift?.vehicleId ?? null;
   }
 
-  private async assertOwnerExists(ownerType: OwnerType, ownerId: string): Promise<void> {
+  private async assertOwnerExists(
+    ownerType: OwnerType,
+    ownerId: string,
+    fleetOwnerId?: string | null,
+  ): Promise<void> {
     if (ownerType === OwnerType.VEHICLE) {
-      const vehicle = await this.vehiclesRepo.findById(ownerId);
+      const vehicle = await this.vehiclesRepo.findById(ownerId, fleetOwnerId);
       if (!vehicle) throw new NotFoundException(`Vehicle ${ownerId} not found`);
       return;
     }
 
-    const driver = await this.driversRepo.findById(ownerId);
+    const driver = await this.driversRepo.findById(ownerId, fleetOwnerId);
     if (!driver) throw new NotFoundException(`Driver ${ownerId} not found`);
   }
 
@@ -324,6 +343,7 @@ export class DocumentsService {
 
   private async enrichOwnerLabels<T extends { ownerType: string; ownerId: string }>(
     documents: T[],
+    fleetOwnerId?: string | null,
   ): Promise<Array<T & { ownerLabel?: string | null }>> {
     const vehicleIds = [
       ...new Set(
@@ -337,8 +357,8 @@ export class DocumentsService {
     ];
 
     const [vehicles, drivers] = await Promise.all([
-      Promise.all(vehicleIds.map((id) => this.vehiclesRepo.findById(id))),
-      Promise.all(driverIds.map((id) => this.driversRepo.findById(id))),
+      Promise.all(vehicleIds.map((id) => this.vehiclesRepo.findById(id, fleetOwnerId))),
+      Promise.all(driverIds.map((id) => this.driversRepo.findById(id, fleetOwnerId))),
     ]);
 
     const vehicleLabels = new Map(

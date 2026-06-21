@@ -12,9 +12,16 @@ datasource db {
 // ─────────────────────────────────────────────
 
 enum Role {
+  SUPER_ADMIN
   OWNER
-  ADMIN
+  MANAGER
+  ACCOUNTANT
   DRIVER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
 }
 
 enum VehicleStatus {
@@ -96,6 +103,47 @@ enum DocumentType {
 }
 
 // ─────────────────────────────────────────────
+// Fleet Owner domain
+// ─────────────────────────────────────────────
+
+model FleetOwner {
+  id          String    @id @default(uuid())
+  name        String
+  phone       String    @unique
+  email       String?
+  address     String?
+  taxNumber   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  memberships FleetMembership[]
+  vehicles    Vehicle[]
+
+  @@index([phone])
+  @@map("fleet_owners")
+}
+
+model FleetMembership {
+  id           String           @id @default(uuid())
+  fleetOwnerId String
+  userId       String
+  role         Role
+  status       MembershipStatus @default(ACTIVE)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  fleetOwner FleetOwner @relation(fields: [fleetOwnerId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([fleetOwnerId, userId])
+  @@index([fleetOwnerId])
+  @@index([userId])
+  @@index([status])
+  @@map("fleet_memberships")
+}
+
+// ─────────────────────────────────────────────
 // Core identity and authentication
 // ─────────────────────────────────────────────
 
@@ -103,6 +151,7 @@ model User {
   id        String    @id @default(uuid())
   username  String    @unique
   email     String?   @unique
+  phone     String?   @unique
   password  String
   name      String
   role      Role      @default(DRIVER)
@@ -115,7 +164,10 @@ model User {
   notifications        Notification[]
   approvedDriverReports DriverReport[] @relation("ApprovedDriverReports")
   approvedSettlements  Settlement[]   @relation("ApprovedSettlements")
+  assignmentsMade      VehicleAssignment[] @relation("AssignmentsMade")
+  fleetMemberships     FleetMembership[]
 
+  @@index([phone])
   @@map("users")
 }
 
@@ -124,27 +176,32 @@ model User {
 // ─────────────────────────────────────────────
 
 model Vehicle {
-  id        String        @id @default(uuid())
-  plate     String        @unique
-  brand     String
-  model     String
-  year      Int
-  color     String?
+  id             String        @id @default(uuid())
+  plate          String        @unique
+  brand          String
+  model          String
+  year           Int
+  color          String?
   status         VehicleStatus @default(IDLE)
   currentMileage Int           @default(0)
+  dailyFee       Decimal       @default(0) @db.Decimal(12, 2)
   hgsTag         String?
-  notes     String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  deletedAt DateTime?
+  notes          String?
+  fleetOwnerId   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
 
+  fleetOwner         FleetOwner?         @relation(fields: [fleetOwnerId], references: [id])
   shifts             Shift[]
   expenses           Expense[]
   maintenanceRecords MaintenanceRecord[]
   hgsTransits        HgsTransit[]
   timelineEvents     TimelineEvent[]
+  assignments        VehicleAssignment[]
 
   @@index([status])
+  @@index([fleetOwnerId])
   @@index([createdAt])
   @@map("vehicles")
 }
@@ -163,10 +220,39 @@ model Driver {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  user   User    @relation(fields: [userId], references: [id])
-  shifts Shift[]
+  user        User                @relation(fields: [userId], references: [id])
+  shifts      Shift[]
+  assignments VehicleAssignment[]
 
   @@map("drivers")
+}
+
+// VehicleAssignment is an independent aggregate separate from Shift.
+// A driver may be assigned to a vehicle for days while multiple shifts occur.
+// Status (ACTIVE/RELEASED) is computed from releasedAt: null=ACTIVE, set=RELEASED.
+// BR-124: Assignments are never deleted. Only released.
+// BR-120/BR-121: Only one active assignment per vehicle and per driver (enforced at service layer).
+model VehicleAssignment {
+  id            String    @id @default(uuid())
+  vehicleId     String
+  driverId      String
+  assignedById  String
+  assignedAt    DateTime  @default(now())
+  releasedAt    DateTime?
+  releaseReason String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  vehicle    Vehicle @relation(fields: [vehicleId], references: [id])
+  driver     Driver  @relation(fields: [driverId], references: [id])
+  assignedBy User    @relation("AssignmentsMade", fields: [assignedById], references: [id])
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([assignedById])
+  @@index([releasedAt])
+  @@map("vehicle_assignments")
 }
 
 // ─────────────────────────────────────────────

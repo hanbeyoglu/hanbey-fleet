@@ -6,12 +6,14 @@ import {
   SchedulerStatusDto,
 } from './dto/scheduler.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { SkipFleetContext } from '../common/decorators/skip-fleet-context.decorator';
 import { Role, SchedulerJobName } from '@hanbey-fleet/shared';
 
 @ApiTags('Scheduler')
 @ApiBearerAuth('access-token')
+@SkipFleetContext()
 @Controller('scheduler')
-@Roles(Role.OWNER, Role.ADMIN)
+@Roles(Role.OWNER, Role.MANAGER)
 export class SchedulerController {
   constructor(private service: SchedulerService) {}
 
