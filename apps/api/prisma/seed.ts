@@ -156,6 +156,203 @@ async function main() {
     ],
   });
 
+  const completedShift = await prisma.shift.create({
+    data: {
+      vehicleId: vehicle.id,
+      driverId: driver.id,
+      plannedStart: new Date('2024-06-19T03:00:00.000Z'),
+      plannedEnd: new Date('2024-06-19T15:00:00.000Z'),
+      actualStart: new Date('2024-06-19T03:00:00.000Z'),
+      actualEnd: new Date('2024-06-19T15:00:00.000Z'),
+      status: 'COMPLETED',
+      type: 'DAY',
+      openingMileage: 45000,
+      closingMileage: 45120,
+    },
+  });
+
+  const driverReport = await prisma.driverReport.create({
+    data: {
+      shiftId: completedShift.id,
+      declaredRevenue: 2500,
+      declaredHgs: 214.5,
+      declaredTotal: 2285.5,
+      notes: 'Day shift settlement seed',
+      isApproved: true,
+      approvedById: owner.id,
+      approvedAt: new Date(),
+    },
+  });
+
+  await prisma.expense.create({
+    data: {
+      vehicleId: vehicle.id,
+      shiftId: completedShift.id,
+      category: 'FUEL',
+      amount: 300,
+      expenseDate: new Date('2024-06-19'),
+      note: 'Shift fuel expense',
+    },
+  });
+
+  await prisma.hgsTransit.updateMany({
+    where: { referenceNo: { in: ['HGS-SEED-001', 'HGS-SEED-002'] } },
+    data: { shiftId: completedShift.id },
+  });
+
+  await prisma.settlement.create({
+    data: {
+      shiftId: completedShift.id,
+      driverReportId: driverReport.id,
+      declaredRevenue: 2500,
+      declaredHgs: 214.5,
+      actualHgs: 214.5,
+      expenses: 300,
+      difference: 0,
+      netRevenue: 1985.5,
+      status: 'MATCHED',
+    },
+  });
+
+  await prisma.vehicle.update({
+    where: { id: vehicle.id },
+    data: { currentMileage: 56000 },
+  });
+
+  const warrantyMaintenance = await prisma.maintenanceRecord.create({
+    data: {
+      vehicleId: vehicle2.id,
+      description: 'Annual inspection with warranty',
+      cost: 600,
+      date: new Date(),
+      mileage: 12000,
+      serviceProvider: 'Hyundai Yetkili Servis',
+      warrantyUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const importableShift = await prisma.shift.create({
+    data: {
+      vehicleId: vehicle2.id,
+      driverId: driver.id,
+      plannedStart: new Date('2024-06-10T03:00:00.000Z'),
+      plannedEnd: new Date('2024-06-10T15:00:00.000Z'),
+      actualStart: new Date('2024-06-10T03:00:00.000Z'),
+      actualEnd: new Date('2024-06-10T15:00:00.000Z'),
+      status: 'COMPLETED',
+      type: 'DAY',
+      openingMileage: 11800,
+      closingMileage: 11950,
+    },
+  });
+
+  await prisma.importJob.create({
+    data: {
+      source: 'MANUAL',
+      status: 'FAILED',
+      rawContent: 'Gelir: 1500\nHGS: 80',
+      parsedContent: { declaredRevenue: 1500, declaredHgs: 80 },
+      error: 'Required fields could not be extracted: shift',
+    },
+  });
+
+  await prisma.document.create({
+    data: {
+      ownerType: 'VEHICLE',
+      ownerId: vehicle.id,
+      title: 'Vehicle Insurance Policy',
+      type: 'INSURANCE',
+      issueDate: new Date('2024-01-01'),
+      expiryDate: new Date('2025-06-01'),
+      revisions: {
+        create: {
+          version: 1,
+          fileName: 'insurance-policy-2024.pdf',
+          fileUrl: 'https://storage.example.com/docs/insurance-policy-2024.pdf',
+          mimeType: 'application/pdf',
+          size: 245760,
+        },
+      },
+    },
+  });
+
+  await prisma.document.create({
+    data: {
+      ownerType: 'VEHICLE',
+      ownerId: vehicle.id,
+      title: 'Annual Inspection Certificate',
+      type: 'INSPECTION',
+      issueDate: new Date(),
+      expiryDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+      revisions: {
+        create: {
+          version: 1,
+          fileName: 'inspection-2026.pdf',
+          fileUrl: 'https://storage.example.com/docs/inspection-2026.pdf',
+          mimeType: 'application/pdf',
+          size: 98304,
+        },
+      },
+    },
+  });
+
+  await prisma.document.create({
+    data: {
+      ownerType: 'DRIVER',
+      ownerId: driver.id,
+      title: 'Driver SRC Certificate',
+      type: 'SRC_CERTIFICATE',
+      issueDate: new Date('2023-06-01'),
+      expiryDate: new Date('2025-12-01'),
+      revisions: {
+        create: {
+          version: 1,
+          fileName: 'src-certificate.pdf',
+          fileUrl: 'https://storage.example.com/docs/src-certificate.pdf',
+          mimeType: 'application/pdf',
+          size: 156000,
+        },
+      },
+    },
+  });
+
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: owner.id,
+        title: 'Maintenance due',
+        message: 'Vehicle 34 HBF 001 has reached 56000 km. Scheduled maintenance at 55000 km.',
+        type: 'MAINTENANCE_REMINDER',
+        metadata: {
+          referenceId: 'seed-notification-maintenance',
+          referenceType: 'maintenance',
+          vehiclePlate: '34 HBF 001',
+        },
+      },
+      {
+        userId: owner.id,
+        title: 'Warranty expiring soon',
+        message: `Warranty for vehicle 34 HBF 002 expires within 30 days.`,
+        type: 'WARRANTY_REMINDER',
+        metadata: {
+          referenceId: warrantyMaintenance.id,
+          referenceType: 'maintenance',
+          vehiclePlate: '34 HBF 002',
+        },
+      },
+      {
+        userId: admin.id,
+        title: 'Driver report missing',
+        message: 'Shift for Mehmet Yılmaz on vehicle 34 HBF 002 completed without a driver report.',
+        type: 'DRIVER_REPORT_MISSING',
+        metadata: {
+          referenceId: 'seed-notification-missing-report',
+          referenceType: 'shift',
+        },
+      },
+    ],
+  });
+
   await prisma.timelineEvent.createMany({
     data: [
       {
@@ -179,6 +376,8 @@ async function main() {
   console.log('  Owner:  cabir / password123');
   console.log('  Admin:  admin / password123');
   console.log('  Driver: ahmet / password123');
+  console.log('');
+  console.log(`Import test shift (no report): ${importableShift.id}`);
 
   void owner;
   void admin;

@@ -18,4 +18,8 @@ export class TimelineService {
   findAll() {
     return this.repo.findAll();
   }
+
+  findRecent(limit: number) {
+    return this.repo.findRecent(limit);
+  }
 }

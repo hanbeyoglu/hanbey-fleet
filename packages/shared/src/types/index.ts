@@ -84,6 +84,32 @@ export enum HgsSortField {
   CREATED_AT = 'createdAt',
 }
 
+export enum SettlementStatus {
+  MATCHED = 'MATCHED',
+  MISMATCH = 'MISMATCH',
+  APPROVED = 'APPROVED',
+}
+
+export enum ImportSource {
+  MANUAL = 'MANUAL',
+  WHATSAPP = 'WHATSAPP',
+  OCR = 'OCR',
+}
+
+export enum ImportStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
+export enum SettlementSortField {
+  CREATED_AT = 'createdAt',
+  NET_REVENUE = 'netRevenue',
+  DIFFERENCE = 'difference',
+  STATUS = 'status',
+}
+
 export enum TimelineEventType {
   VEHICLE_CREATED = 'VEHICLE_CREATED',
   VEHICLE_DELETED = 'VEHICLE_DELETED',
@@ -92,6 +118,7 @@ export enum TimelineEventType {
   SHIFT_COMPLETED = 'SHIFT_COMPLETED',
   SHIFT_CANCELLED = 'SHIFT_CANCELLED',
   DRIVER_REPORT_SUBMITTED = 'DRIVER_REPORT_SUBMITTED',
+  DRIVER_REPORT_IMPORTED = 'DRIVER_REPORT_IMPORTED',
   DRIVER_REPORT_APPROVED = 'DRIVER_REPORT_APPROVED',
   EXPENSE_CREATED = 'EXPENSE_CREATED',
   EXPENSE_UPDATED = 'EXPENSE_UPDATED',
@@ -101,6 +128,11 @@ export enum TimelineEventType {
   MAINTENANCE_DELETED = 'MAINTENANCE_DELETED',
   MAINTENANCE_COMPLETED = 'MAINTENANCE_COMPLETED',
   HGS_IMPORTED = 'HGS_IMPORTED',
+  SETTLEMENT_CREATED = 'SETTLEMENT_CREATED',
+  SETTLEMENT_APPROVED = 'SETTLEMENT_APPROVED',
+  DOCUMENT_UPLOADED = 'DOCUMENT_UPLOADED',
+  DOCUMENT_REPLACED = 'DOCUMENT_REPLACED',
+  DOCUMENT_DELETED = 'DOCUMENT_DELETED',
 }
 
 export enum NotificationType {
@@ -108,6 +140,11 @@ export enum NotificationType {
   WARNING = 'WARNING',
   ERROR = 'ERROR',
   SUCCESS = 'SUCCESS',
+  MAINTENANCE_REMINDER = 'MAINTENANCE_REMINDER',
+  WARRANTY_REMINDER = 'WARRANTY_REMINDER',
+  SETTLEMENT_MISMATCH = 'SETTLEMENT_MISMATCH',
+  DRIVER_REPORT_MISSING = 'DRIVER_REPORT_MISSING',
+  DOCUMENT_EXPIRING = 'DOCUMENT_EXPIRING',
 }
 
 export interface PaginationMeta {
@@ -136,3 +173,6 @@ export interface JwtPayload {
   iat?: number;
   exp?: number;
 }
+
+export * from './scheduler';
+export * from './document';

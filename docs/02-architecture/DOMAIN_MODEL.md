@@ -97,9 +97,103 @@ Notification
 
 Responsible for:
 
-- Alerts
-- Reminders
-- Future notifications
+- Alerts requiring user action
+- Maintenance and warranty reminders
+- Settlement mismatch alerts
+- Missing driver report alerts
+
+Notifications are created automatically by `ReminderService` or domain workflows (e.g. settlement creation). They are independent from Timeline.
+
+Workflow:
+
+1. Business event or scheduled reminder check triggers notification creation
+2. Notification is assigned to fleet managers (OWNER, ADMIN)
+3. User reads notification from admin panel
+4. User marks notification as read (optional: mark all as read)
+5. Notification is soft-deleted when dismissed (never hard deleted)
+
+Reminder checks are executed by SchedulerService on configured cron schedules.
+
+⸻
+
+Scheduler
+
+Responsible for:
+
+- Orchestrating recurring automation tasks
+- Executing reminder checks on schedule
+- Running HGS sync stub
+- Archiving old completed imports
+
+SchedulerService contains no business rules. It only orchestrates:
+
+- ReminderService
+- HgsService
+- ImportService
+
+Job state (last run, duration, errors) is kept in memory. Execution logs use NestJS Logger only.
+
+Schedules:
+
+- Every hour — runAllChecks, missing driver reports
+- Every 30 minutes — settlement mismatch
+- Daily 02:00 — HGS sync stub
+- Daily 03:00 — import cleanup (90-day archive)
+- Daily 08:00 — maintenance reminders
+- Daily 09:00 — warranty reminders
+
+Manual execution reuses the same orchestration methods as cron jobs.
+
+⸻
+
+Document
+
+Responsible for:
+
+- Legal and compliance document metadata for vehicles and drivers
+- Version history through immutable revisions
+- Expiry tracking and compliance visibility
+
+Workflow:
+
+1. Document created with owner, type, dates and initial file metadata revision
+2. Status computed from expiryDate (VALID / EXPIRING / EXPIRED)
+3. New file version creates immutable DocumentRevision
+4. Expiring documents trigger DOCUMENT_EXPIRING notifications
+5. Expired documents surface on Dashboard
+6. Soft delete preserves audit trail via revisions
+
+File storage is metadata-only in this sprint. No S3, MinIO or local uploads.
+
+⸻
+
+Import
+
+Responsible for:
+
+- Receiving raw driver declarations from external sources
+- Parsing and validating imported content
+- Creating DriverReport from successful imports
+- Maintaining import history
+
+Sources (simulated in current sprint):
+
+- MANUAL — raw text input
+- OCR — simulated OCR text (no real OCR provider)
+- WHATSAPP — simulated WhatsApp payload (no real WhatsApp provider)
+
+Workflow:
+
+1. Import request received via API
+2. ImportJob created with raw content stored
+3. ParserService extracts shift, revenue, HGS and notes
+4. On parse failure → ImportJob FAILED
+5. On shift conflict → ImportJob FAILED + Conflict response
+6. On success → DriverReport created within transaction
+7. Timeline event DRIVER_REPORT_IMPORTED generated
+8. ImportJob marked COMPLETED with driverReportId reference
+
+ParserService is pure business logic with no database access.
 
 ⸻
 
@@ -286,6 +380,8 @@ ShiftCompleted
 
 DriverReportSubmitted
 
+DriverReportImported
+
 DriverReportApproved
 
 ExpenseCreated
@@ -296,7 +392,15 @@ HgsImported
 
 VehicleStatusChanged
 
-NotificationCreated
+SettlementCreated
+
+  SettlementApproved
+
+DocumentUploaded
+
+DocumentReplaced
+
+DocumentDeleted
 
 ⸻
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { SchedulerStatusDto } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -72,11 +73,10 @@ export const timelineApi = {
 };
 
 export const settlementsApi = {
-  list: (params?: { vehicleId?: string; driverId?: string }) =>
-    api.get('/settlements', { params }),
+  list: (params?: Record<string, unknown>) => api.get('/settlements', { params }),
   get: (id: string) => api.get(`/settlements/${id}`),
-  create: (data: unknown) => api.post('/settlements', data),
-  update: (id: string, data: unknown) => api.patch(`/settlements/${id}`, data),
+  create: (data: unknown) => api.post('/settlements/create', data),
+  approve: (id: string, data?: unknown) => api.post(`/settlements/${id}/approve`, data ?? {}),
 };
 
 export const expensesApi = {
@@ -107,9 +107,37 @@ export const reportsApi = {
     api.get(`/reports/vehicle/${id}`, { params: { year, month } }),
 };
 
+export const dashboardApi = {
+  overview: () => api.get('/dashboard'),
+  charts: () => api.get('/dashboard/charts'),
+};
+
 export const notificationsApi = {
-  list: (unreadOnly?: boolean) =>
-    api.get('/notifications', { params: unreadOnly ? { unreadOnly: true } : {} }),
-  markRead: (id: string) => api.patch(`/notifications/${id}/read`),
-  markAllRead: () => api.patch('/notifications/read-all'),
+  list: (params?: Record<string, unknown>) => api.get('/notifications', { params }),
+  unreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),
+  markRead: (id: string) => api.post(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
+};
+
+export const importsApi = {
+  list: (params?: Record<string, unknown>) => api.get('/imports', { params }),
+  get: (id: string) => api.get(`/imports/${id}`),
+  manual: (data: { rawContent: string }) => api.post('/imports/manual', data),
+  ocr: (data: { text: string }) => api.post('/imports/ocr', data),
+  whatsapp: (data: { message: string; sender?: string; receivedAt?: string }) =>
+    api.post('/imports/whatsapp', data),
+};
+
+export const schedulerApi = {
+  jobs: () => api.get<SchedulerStatusDto>('/scheduler/jobs'),
+  run: (job: string) => api.post(`/scheduler/run/${job}`),
+};
+
+export const documentsApi = {
+  list: (params?: Record<string, unknown>) => api.get('/documents', { params }),
+  get: (id: string) => api.get(`/documents/${id}`),
+  create: (data: unknown) => api.post('/documents', data),
+  update: (id: string, data: unknown) => api.patch(`/documents/${id}`, data),
+  newVersion: (id: string, data: unknown) => api.post(`/documents/${id}/new-version`, data),
+  delete: (id: string) => api.delete(`/documents/${id}`),
 };

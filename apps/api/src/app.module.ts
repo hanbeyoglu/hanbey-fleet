@@ -15,6 +15,11 @@ import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { DriverReportsModule } from './driver-reports/driver-reports.module';
+import { SettlementsModule } from './settlements/settlements.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { ImportsModule } from './imports/imports.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -43,6 +48,11 @@ import { DriverReportsModule } from './driver-reports/driver-reports.module';
     NotificationsModule,
     ShiftsModule,
     DriverReportsModule,
+    SettlementsModule,
+    DashboardModule,
+    ImportsModule,
+    SchedulerModule,
+    DocumentsModule,
   ],
 })
 export class AppModule {}

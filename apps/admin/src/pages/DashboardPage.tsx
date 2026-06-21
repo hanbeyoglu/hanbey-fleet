@@ -1,50 +1,63 @@
 import { useEffect, useState } from 'react';
-import { driversApi, reportsApi, shiftsApi, timelineApi, vehiclesApi } from '../lib/api';
+import { dashboardApi } from '../lib/api';
 import { TimelineFeed } from '../components/TimelineFeed';
 import { formatCurrency } from '../lib/utils';
-import {
-  asArray,
-  MonthlyReportSummary,
-  ShiftResponseDto,
-  TimelineEventDto,
-  unwrapPaginated,
-} from '../types/api';
+import { DashboardChartDto, DashboardOverviewDto, TimelineEventDto } from '../types/api';
+
+function MiniChart({
+  title,
+  data,
+  color,
+}: {
+  title: string;
+  data: { date: string; value: number }[];
+  color: string;
+}) {
+  const max = Math.max(...data.map((d) => d.value), 1);
+  const recent = data.slice(-14);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">{title}</h2>
+      {recent.every((d) => d.value === 0) ? (
+        <p className="text-sm text-gray-400 text-center py-8">No data for this period.</p>
+      ) : (
+        <div className="flex items-end gap-1 h-32">
+          {recent.map((point) => (
+            <div key={point.date} className="flex-1 flex flex-col items-center gap-1">
+              <div
+                className={`w-full rounded-t ${color}`}
+                style={{ height: `${Math.max((point.value / max) * 100, point.value > 0 ? 4 : 0)}%` }}
+                title={`${point.date}: ${formatCurrency(point.value)}`}
+              />
+              <span className="text-[9px] text-gray-400 rotate-0 truncate w-full text-center">
+                {point.date.slice(5)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function DashboardPage() {
-  const now = new Date();
-  const [summary, setSummary] = useState<MonthlyReportSummary | null>(null);
-  const [vehicleCount, setVehicleCount] = useState(0);
-  const [driverCount, setDriverCount] = useState(0);
-  const [activeShiftCount, setActiveShiftCount] = useState(0);
-  const [timeline, setTimeline] = useState<TimelineEventDto[]>([]);
+  const [overview, setOverview] = useState<DashboardOverviewDto | null>(null);
+  const [charts, setCharts] = useState<DashboardChartDto | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      reportsApi.monthly(now.getFullYear(), now.getMonth() + 1),
-      vehiclesApi.list(),
-      driversApi.list(),
-      shiftsApi.current(),
-      timelineApi.list(),
-    ])
-      .then(([reportRes, vehiclesRes, driversRes, shiftsRes, timelineRes]) => {
-        setSummary((reportRes.data as MonthlyReportSummary) ?? null);
-
-        const { data: vehicles, meta } = unwrapPaginated(vehiclesRes.data);
-        setVehicleCount(meta?.total ?? vehicles.length);
-
-        setDriverCount(asArray(driversRes.data).length);
-        setActiveShiftCount(asArray<ShiftResponseDto>(shiftsRes.data).length);
-        setTimeline(asArray<TimelineEventDto>(timelineRes.data));
+    Promise.all([dashboardApi.overview(), dashboardApi.charts()])
+      .then(([overviewRes, chartsRes]) => {
+        setOverview(overviewRes.data as DashboardOverviewDto);
+        setCharts(chartsRes.data as DashboardChartDto);
       })
       .catch(() => {
-        setSummary(null);
-        setTimeline([]);
+        setOverview(null);
+        setCharts(null);
       })
       .finally(() => setLoading(false));
   }, []);
-
-  const month = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
   if (loading) {
     return (
@@ -54,77 +67,122 @@ export function DashboardPage() {
     );
   }
 
-  const totals = summary?.totals;
+  const today = overview?.financialSummary.today;
+  const settlements = overview?.financialSummary.settlements;
+  const fleet = overview?.fleet;
+
+  const timelineEvents: TimelineEventDto[] =
+    overview?.timeline.events.map((event) => ({
+      id: event.id,
+      eventType: event.eventType,
+      description: event.description,
+      eventTime: event.eventTime,
+      vehicleId: event.vehicleId ?? '',
+      vehicle: event.vehiclePlate ? { id: event.vehicleId ?? '', plate: event.vehiclePlate } : undefined,
+    })) ?? [];
 
   const stats = [
-    { label: 'Registered Vehicles', value: vehicleCount, icon: '🚕', color: 'text-blue-700' },
-    { label: 'Registered Drivers', value: driverCount, icon: '👤', color: 'text-purple-700' },
-    { label: 'Active Shifts', value: activeShiftCount, icon: '🔄', color: 'text-green-700' },
-    {
-      label: 'Monthly Expenses',
-      value: formatCurrency(totals?.expenses),
-      icon: '📋',
-      color: 'text-orange-700',
-    },
-    {
-      label: 'HGS Tolls',
-      value: formatCurrency(totals?.hgs),
-      icon: '🛣️',
-      color: 'text-red-700',
-    },
-    {
-      label: 'Maintenance',
-      value: formatCurrency(totals?.maintenance),
-      icon: '🔧',
-      color: 'text-emerald-700',
-    },
+    { label: "Today's Revenue", value: formatCurrency(today?.revenue), icon: '💰', color: 'text-green-700' },
+    { label: "Today's Expenses", value: formatCurrency(today?.expenses), icon: '📋', color: 'text-red-700' },
+    { label: "Today's HGS", value: formatCurrency(today?.hgs), icon: '🛣️', color: 'text-orange-700' },
+    { label: 'Net Revenue', value: formatCurrency(today?.netRevenue), icon: '📈', color: 'text-emerald-700' },
+    { label: 'Active Vehicles', value: fleet?.activeVehicles ?? 0, icon: '🚕', color: 'text-blue-700' },
+    { label: 'Active Drivers', value: fleet?.activeDrivers ?? 0, icon: '👤', color: 'text-purple-700' },
+    { label: 'Completed Shifts', value: today?.completedShifts ?? 0, icon: '✅', color: 'text-teal-700' },
+    { label: 'Maintenance Today', value: today?.maintenanceCount ?? 0, icon: '🔧', color: 'text-yellow-700' },
   ];
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Summary for {month}</p>
+        <p className="text-sm text-gray-500 mt-1">
+          Operational overview for {overview?.date ?? 'today'}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-3">
+          <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-500">{stat.label}</span>
-              <span className="text-2xl">{stat.icon}</span>
+              <span className="text-xl">{stat.icon}</span>
             </div>
-            <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+            <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
           </div>
         ))}
       </div>
 
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Cost Breakdown ({month})</h2>
-          <div className="space-y-3">
-            {[
-              { label: 'Vehicle Expenses', value: totals?.expenses, color: 'text-red-600' },
-              { label: 'HGS Tolls', value: totals?.hgs, color: 'text-orange-600' },
-              { label: 'Maintenance', value: totals?.maintenance, color: 'text-emerald-600' },
-            ].map((row) => (
-              <div
-                key={row.label}
-                className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-              >
-                <span className="text-sm text-gray-600">{row.label}</span>
-                <span className={`text-sm font-medium ${row.color}`}>
-                  {formatCurrency(row.value)}
-                </span>
-              </div>
-            ))}
+      <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Settlement Summary</h2>
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: 'Matched', value: settlements?.matched ?? 0, color: 'text-green-700 bg-green-50' },
+            { label: 'Mismatch', value: settlements?.mismatch ?? 0, color: 'text-red-700 bg-red-50' },
+            { label: 'Approved', value: settlements?.approved ?? 0, color: 'text-blue-700 bg-blue-50' },
+          ].map((item) => (
+            <div key={item.label} className={`rounded-lg p-4 text-center ${item.color}`}>
+              <div className="text-2xl font-bold">{item.value}</div>
+              <div className="text-sm mt-1">{item.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Document Compliance</h2>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="rounded-lg p-4 text-center text-red-700 bg-red-50">
+            <div className="text-2xl font-bold">{overview?.compliance.expiredCount ?? 0}</div>
+            <div className="text-sm mt-1">Expired</div>
+          </div>
+          <div className="rounded-lg p-4 text-center text-amber-800 bg-amber-50">
+            <div className="text-2xl font-bold">{overview?.compliance.expiringCount ?? 0}</div>
+            <div className="text-sm mt-1">Expiring Soon</div>
           </div>
         </div>
+        {(overview?.compliance.expiredDocuments.length ?? 0) > 0 ? (
+          <div className="overflow-hidden border border-gray-100 rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['Document', 'Owner', 'Type', 'Expired'].map((h) => (
+                    <th key={h} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {overview?.compliance.expiredDocuments.map((doc) => (
+                  <tr key={doc.id}>
+                    <td className="px-3 py-2 font-medium">{doc.title}</td>
+                    <td className="px-3 py-2">{doc.ownerLabel ?? doc.ownerId.slice(0, 8)}</td>
+                    <td className="px-3 py-2">{doc.type}</td>
+                    <td className="px-3 py-2 text-red-600">
+                      {doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString('tr-TR') : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">No expired documents.</p>
+        )}
+      </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Timeline</h2>
-          <TimelineFeed events={timeline} limit={8} />
+      {charts && (
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <MiniChart title="Revenue (30 days)" data={charts.revenue} color="bg-green-500" />
+          <MiniChart title="Expenses (30 days)" data={charts.expenses} color="bg-red-500" />
+          <MiniChart title="HGS (30 days)" data={charts.hgs} color="bg-orange-500" />
         </div>
+      )}
+
+      <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Timeline</h2>
+        <TimelineFeed events={timelineEvents} limit={20} />
       </div>
     </div>
   );

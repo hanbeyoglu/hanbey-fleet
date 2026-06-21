@@ -5,6 +5,7 @@ import {
   ShiftStatus,
   ShiftType,
   ExpenseCategory,
+  SettlementStatus,
 } from '@hanbey-fleet/shared';
 
 export interface VehicleResponseDto {
@@ -150,6 +151,166 @@ export interface HgsTransitDto {
   provider?: string | null;
   referenceNo?: string | null;
   vehicle?: { id: string; plate: string; hgsTag?: string | null } | null;
+}
+
+export interface SettlementResponseDto {
+  id: string;
+  shiftId: string;
+  driverReportId: string;
+  declaredRevenue: number;
+  declaredHgs: number;
+  actualHgs: number;
+  expenses: number;
+  difference: number;
+  netRevenue: number;
+  status: SettlementStatus;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  shift?: {
+    id: string;
+    vehicleId: string;
+    driverId: string;
+    actualStart?: string | null;
+    actualEnd?: string | null;
+    driver?: { id: string; name: string; username: string };
+    vehicle?: { id: string; plate: string; brand: string; model: string };
+  };
+  approvedBy?: { id: string; name: string; username: string } | null;
+}
+
+export interface NotificationResponseDto {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  readAt?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ParsedImportContentDto {
+  shiftId?: string;
+  declaredRevenue?: number;
+  declaredHgs?: number;
+  declaredTotal?: number;
+  notes?: string;
+}
+
+export interface ImportResponseDto {
+  id: string;
+  source: string;
+  status: string;
+  rawContent: string;
+  parsedContent?: ParsedImportContentDto | null;
+  driverReportId?: string | null;
+  error?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SchedulerJobDto {
+  name: string;
+  label: string;
+  schedule: string;
+  status: string;
+  lastRunAt?: string | null;
+  nextRunAt?: string | null;
+  lastDurationMs?: number | null;
+  lastError?: string | null;
+}
+
+export interface SchedulerStatusDto {
+  enabled: boolean;
+  jobs: SchedulerJobDto[];
+}
+
+export interface DocumentRevisionDto {
+  id: string;
+  version: number;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface DocumentResponseDto {
+  id: string;
+  ownerType: string;
+  ownerId: string;
+  ownerLabel?: string | null;
+  title: string;
+  type: string;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  status: string;
+  currentRevision: DocumentRevisionDto;
+  revisions: DocumentRevisionDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DashboardChartPointDto {
+  date: string;
+  value: number;
+}
+
+export interface DashboardChartDto {
+  revenue: DashboardChartPointDto[];
+  expenses: DashboardChartPointDto[];
+  hgs: DashboardChartPointDto[];
+}
+
+export interface DashboardOverviewDto {
+  date: string;
+  financialSummary: {
+    today: {
+      revenue: number;
+      expenses: number;
+      hgs: number;
+      netRevenue: number;
+      completedShifts: number;
+      maintenanceCount: number;
+    };
+    settlements: {
+      matched: number;
+      mismatch: number;
+      approved: number;
+    };
+  };
+  fleet: {
+    activeVehicles: number;
+    activeDrivers: number;
+  };
+  timeline: {
+    events: Array<{
+      id: string;
+      eventType: string;
+      description: string;
+      eventTime: string;
+      vehicleId?: string;
+      vehiclePlate?: string | null;
+    }>;
+  };
+  compliance: {
+    expiredCount: number;
+    expiringCount: number;
+    expiredDocuments: Array<{
+      id: string;
+      title: string;
+      type: string;
+      ownerType: string;
+      ownerId: string;
+      ownerLabel?: string | null;
+      expiryDate: string;
+      status: string;
+    }>;
+  };
 }
 
 export type PaginatedVehicles = PaginatedResponse<VehicleResponseDto>;

@@ -287,6 +287,41 @@ HGS records are immutable.
 
 Timeline events are append-only.
 
+Document revisions are immutable.
+
+⸻
+
+documents
+
+Legal document metadata for vehicles and drivers.
+
+Fields:
+
+- ownerType (VEHICLE | DRIVER)
+- ownerId
+- title
+- type
+- issueDate
+- expiryDate
+- deletedAt (soft delete)
+
+Status (VALID, EXPIRING, EXPIRED) is computed at runtime, not stored.
+
+⸻
+
+document_revisions
+
+Immutable file metadata versions linked to a document.
+
+Fields:
+
+- documentId
+- version
+- fileName
+- fileUrl
+- mimeType
+- size
+
 ⸻
 
 Future Ready

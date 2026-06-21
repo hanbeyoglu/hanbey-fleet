@@ -60,6 +60,17 @@ export class UsersRepository {
     });
   }
 
+  findFleetManagers() {
+    return this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        role: { in: [Role.OWNER, Role.ADMIN] },
+      },
+      select: { id: true },
+    });
+  }
+
   create(data: CreateUserData) {
     return this.prisma.user.create({
       data,

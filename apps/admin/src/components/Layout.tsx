@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { NotificationBell } from './NotificationBell';
 
 const NAV = [
   { label: 'Dashboard', href: '/', icon: '⊞' },
@@ -10,6 +11,9 @@ const NAV = [
   { label: 'Expenses', href: '/expenses', icon: '📋' },
   { label: 'Maintenance', href: '/maintenance', icon: '🔧' },
   { label: 'HGS Transits', href: '/hgs', icon: '🛣️' },
+  { label: 'Imports', href: '/imports', icon: '📥' },
+  { label: 'Scheduler', href: '/scheduler', icon: '⏱️' },
+  { label: 'Documents', href: '/documents', icon: '📄' },
   { label: 'Reports', href: '/reports', icon: '📊' },
 ];
 
@@ -57,9 +61,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">{children}</div>
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-16 flex-shrink-0 bg-white border-b border-gray-200 flex items-center justify-end px-8 gap-4">
+          <NotificationBell />
+        </header>
+        <main className="flex-1 overflow-auto">
+          <div className="p-8">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

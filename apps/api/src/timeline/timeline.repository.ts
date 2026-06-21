@@ -34,4 +34,12 @@ export class TimelineRepository {
       include: { vehicle: { select: { id: true, plate: true } } },
     });
   }
+
+  findRecent(limit: number) {
+    return this.prisma.timelineEvent.findMany({
+      orderBy: { eventTime: 'desc' },
+      take: limit,
+      include: { vehicle: { select: { id: true, plate: true } } },
+    });
+  }
 }

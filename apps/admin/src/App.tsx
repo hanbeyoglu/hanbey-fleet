@@ -11,6 +11,10 @@ import { ExpensesPage } from './pages/ExpensesPage';
 import { MaintenancePage } from './pages/MaintenancePage';
 import { HgsPage } from './pages/HgsPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { ImportsPage } from './pages/ImportsPage';
+import { SchedulerPage } from './pages/SchedulerPage';
+import { DocumentsPage } from './pages/DocumentsPage';
 
 function AppRoutes() {
   return (
@@ -30,6 +34,10 @@ function AppRoutes() {
                 <Route path="/maintenance" element={<MaintenancePage />} />
                 <Route path="/hgs" element={<HgsPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/imports" element={<ImportsPage />} />
+                <Route path="/scheduler" element={<SchedulerPage />} />
+                <Route path="/documents" element={<DocumentsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Layout>
